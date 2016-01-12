@@ -20,17 +20,18 @@ public:
 
 	Atom findBestMatch() const;
 
+	size_t getAtomCount(void) const;
+
 	void subtractAtom(const Atom&);
 };
 
 class GaborWorkspaceBuilder : public WorkspaceBuilder {
 	double energyError;
 	double scaleMin;
-	double scaleMax;
 
 public:
-	GaborWorkspaceBuilder(double energyError, double scaleMin, double scaleMax)
-	: energyError(energyError), scaleMin(scaleMin), scaleMax(scaleMax) { }
+	GaborWorkspaceBuilder(double energyError, double scaleMin)
+	: energyError(energyError), scaleMin(scaleMin) { }
 
 	Workspace* buildWorkspace(const SingleSignal&) const;
 

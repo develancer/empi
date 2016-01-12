@@ -153,6 +153,14 @@ Atom GaborWorkspace::findBestMatch() const {
 	return atomBest;
 }
 
+size_t GaborWorkspace::getAtomCount(void) const {
+	size_t atomCount = 0;
+	for (auto map : maps) {
+		atomCount += map->fCount * map->tCount;
+	}
+	return atomCount;
+}
+
 void GaborWorkspace::subtractAtom(const Atom& atom) {
 	const double sA = atom.params[3] / freqSampling;
 	const double fA = atom.params[4] * freqSampling / 2.0;
@@ -175,6 +183,7 @@ void GaborWorkspace::subtractAtom(const Atom& atom) {
 //------------------------------------------------------------------------------
 
 Workspace* GaborWorkspaceBuilder::buildWorkspace(const SingleSignal& signal) const {
+	double scaleMax = signal.samples.size() / signal.freqSampling;
 	double root = sqrt(-2.0/M_PI * log(1.0-energyError));
 	double aDenomSqrt = 1.0 - energyError;
 	double aNominPart = energyError*(2.0-energyError)*(energyError*energyError-2*energyError+2);

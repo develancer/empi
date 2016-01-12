@@ -11,7 +11,9 @@
 SingleChannelResult Decomposition::compute(const DecompositionSettings& settings, const WorkspaceBuilder& builder, const SingleSignal& signal) {
 	std::unique_ptr<Workspace> workspace( builder.buildWorkspace(signal) );
 	SingleChannelResult result;
-	for (int iteration=1; iteration<=settings.iterationMax; ++iteration) {
+	size_t atomCount = workspace->getAtomCount();
+	for (int iteration=0; iteration<settings.iterationMax; ++iteration) {
+		printf("ATOM\t%d\t%zd\t%.2f\t%.2f\n", iteration, atomCount, 0.0, 0.0);
 		Atom best = workspace->findBestMatch();
 		result.push_back(best);
 		workspace->subtractAtom(best);

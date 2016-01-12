@@ -60,9 +60,8 @@ int main(int argc, char** argv) {
 	StringDictionary legacyConfiguration = parseLegacyConfiguration(configFilePath);
 
 	double energyError = atof(legacyConfiguration.at("energyError").c_str());
-	double scaleMin = 0.1;
-	double scaleMax = 5.0;
-	builder.reset( new GaborWorkspaceBuilder(energyError, scaleMin, scaleMax) );
+	double scaleMin = 0.25;
+	builder.reset( new GaborWorkspaceBuilder(energyError, scaleMin) );
 
 	std::string typeOfMP = legacyConfiguration.at("MP");
 	std::transform(typeOfMP.begin(), typeOfMP.end(), typeOfMP.begin(), tolower);

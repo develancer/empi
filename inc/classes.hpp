@@ -64,6 +64,7 @@ class Workspace {
 public:
 	virtual ~Workspace() =default;
 	virtual Atom findBestMatch() const =0;
+	virtual size_t getAtomCount(void) const =0;
 	virtual void subtractAtom(const Atom& atom) =0;
 };
 
