@@ -159,33 +159,54 @@ struct GaborProductCalculator {
 };
 
 Atom GaborWorkspace::findBestMatch() const {
-	double modulusBest = 0;
-	Atom atomBest;
+	double modulusTotal = 0;
+	Atom atomTotal;
 	for (auto map : maps) {
 		const double s = map->s;
 		const double amplFactor = 2.0 * sqrt(M_SQRT2 / s);
-		for (size_t fIndex=0; fIndex<map->fCount; ++fIndex) {
-			for (size_t tIndex=0; tIndex<map->tCount; ++tIndex) {
-				complex value = map->value(fIndex, tIndex);
-				double f = map->f(fIndex);
-				double phase = std::arg(value);
-				double realFactor = 1.0 + cos(2*phase)*exp(-2*M_PI*s*s*f*f);
-				double modulus = std::abs(value) * M_SQRT2 * sqrt(freqSampling / realFactor);
-				if (modulus > modulusBest) {
-					atomBest.type = ATOM_GABOR;
-					atomBest.params.resize(6);
-					atomBest.params[0] = modulus;
-					atomBest.params[1] = std::abs(value) * amplFactor / realFactor;
-					atomBest.params[2] = map->t(tIndex) * freqSampling;
-					atomBest.params[3] = s * freqSampling;
-					atomBest.params[4] = f * 2.0 / freqSampling;
-					atomBest.params[5] = phase;
-					modulusBest = modulus;
+		#ifdef _OPENMP
+		#pragma omp parallel
+		#endif
+		{
+			double modulusBest = 0;
+			Atom atomBest;
+
+			#ifdef _OPENMP
+			#pragma omp for
+			#endif
+			for (size_t fIndex=0; fIndex<map->fCount; ++fIndex) {
+				const double f = map->f(fIndex);
+				const double expFactor = exp(-2*M_PI*s*s*f*f);
+				for (size_t tIndex=0; tIndex<map->tCount; ++tIndex) {
+					complex value = map->value(fIndex, tIndex);
+					double phase = std::arg(value);
+					double realFactor = 1.0 + cos(2*phase) * expFactor;
+					double modulus = std::abs(value) * M_SQRT2 * sqrt(freqSampling / realFactor);
+					if (modulus > modulusBest) {
+						atomBest.type = ATOM_GABOR;
+						atomBest.params.resize(6);
+						atomBest.params[0] = modulus;
+						atomBest.params[1] = std::abs(value) * amplFactor / realFactor;
+						atomBest.params[2] = map->t(tIndex) * freqSampling;
+						atomBest.params[3] = s * freqSampling;
+						atomBest.params[4] = f * 2.0 / freqSampling;
+						atomBest.params[5] = phase;
+						modulusBest = modulus;
+					}
+				}
+			}
+			#ifdef _OPENMP
+			#pragma omp critical
+			#endif
+			{
+				if (modulusBest > modulusTotal) {
+					atomTotal = atomBest;
+					modulusTotal = modulusBest;
 				}
 			}
 		}
 	}
-	return atomBest;
+	return atomTotal;
 }
 
 size_t GaborWorkspace::getAtomCount(void) const {
@@ -204,6 +225,9 @@ void GaborWorkspace::subtractAtom(const Atom& atom) {
 	for (auto map : maps) {
 		GaborProductBase base(sA, map->s);
 		if (base.product >= ORTHOGONALITY) {
+			#ifdef _OPENMP
+			#pragma omp parallel for schedule(static,1)
+			#endif
 			for (size_t tIndex=0; tIndex<map->tCount; ++tIndex) {
 				GaborProductCalculator calc(&base, tA, map->t(tIndex));
 				if (calc.product >= ORTHOGONALITY) {

@@ -1,6 +1,6 @@
 # University of Warsaw, Department of Biomedical Physics
 # See LICENCE for details.
-CXXFLAGS = -std=c++11 -Iinc -Wall -Wextra -Wpedantic -O2
+CXXFLAGS = -std=c++11 -fopenmp -Iinc -Wall -Wextra -Wpedantic -O2
 LDFLAGS = -lfftw3
 
 .PHONY : default
