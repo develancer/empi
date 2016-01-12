@@ -55,17 +55,41 @@ public:
 	}
 };
 
+typedef fftwArray<double> fftwDouble;
+typedef fftwArray<std::complex<double>> fftwComplex;
+
 class fftwPlan {
-	fftw_plan plan;
+	fftw_plan plan = 0;
 
 	fftwPlan(const fftwPlan&); // forbidden
 	void operator=(const fftwPlan&); // forbidden
 
 public:
-	inline fftwPlan(fftw_plan plan) : plan(plan) { }
+	inline fftwPlan(int Nfft, fftwComplex& input, fftwComplex& output, int sign, unsigned flags) {
+		#ifdef _OPENMP
+		#pragma omp critical
+		#endif
+		{
+			plan = fftw_plan_dft_1d(Nfft, reinterpret_cast<fftw_complex*>(&input), reinterpret_cast<fftw_complex*>(&output), sign, flags);
+		}
+	}
+
+	inline fftwPlan(int Nfft, fftwDouble& input, fftwComplex& output, unsigned flags) {
+		#ifdef _OPENMP
+		#pragma omp critical
+		#endif
+		{
+			plan = fftw_plan_dft_r2c_1d(Nfft, &input, reinterpret_cast<fftw_complex*>(&output), flags);
+		}
+	}
 
 	inline ~fftwPlan() {
-		fftw_destroy_plan(plan);
+		#ifdef _OPENMP
+		#pragma omp critical
+		#endif
+		{
+			if (plan) fftw_destroy_plan(plan);
+		}
 	}
 
 	inline fftw_plan operator&() const {
@@ -85,8 +109,5 @@ inline T fftwRound(T x) {
 	}
 	return y;
 }
-
-typedef fftwArray<double> fftwDouble;
-typedef fftwArray<std::complex<double>> fftwComplex;
 
 #endif	/* EMPI_FFTW_HPP */

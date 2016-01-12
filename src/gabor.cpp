@@ -66,7 +66,7 @@ void GaborMapGenerator1::generate(TimeFreqMap<complex>& map, const SingleSignal&
 
 	fftwDouble input(Nfft);
 	fftwComplex output(map.fCount + 1);
-	fftwPlan plan(fftw_plan_dft_r2c_1d(Nfft, &input, reinterpret_cast<fftw_complex*>(&output), FFTW_ESTIMATE | FFTW_DESTROY_INPUT));
+	fftwPlan plan(Nfft, input, output, FFTW_ESTIMATE | FFTW_DESTROY_INPUT);
 
 	const long N = signal.samples.size();
 	for (size_t ti=0; ti<map.tCount; ++ti) {
@@ -102,8 +102,8 @@ void GaborMapGenerator2::generate(TimeFreqMap<complex>& map, const SingleSignal&
 	fftwComplex transform(Nfft);
 	fftwComplex input(Nfft);
 	fftwComplex output(Nfft);
-	fftwPlan planForward(fftw_plan_dft_1d(Nfft, reinterpret_cast<fftw_complex*>(&input), reinterpret_cast<fftw_complex*>(&transform), FFTW_FORWARD, FFTW_ESTIMATE | FFTW_DESTROY_INPUT));
-	fftwPlan planBackward(fftw_plan_dft_1d(Nfft, reinterpret_cast<fftw_complex*>(&input), reinterpret_cast<fftw_complex*>(&output), FFTW_BACKWARD, FFTW_ESTIMATE | FFTW_DESTROY_INPUT));
+	fftwPlan planForward(Nfft, input, transform, FFTW_FORWARD, FFTW_ESTIMATE | FFTW_DESTROY_INPUT);
+	fftwPlan planBackward(Nfft, input, output, FFTW_BACKWARD, FFTW_ESTIMATE | FFTW_DESTROY_INPUT);
 
 	input.zero();
 	for (size_t i=0; i<signal.samples.size(); ++i) {
@@ -289,6 +289,9 @@ Workspace* GaborWorkspaceBuilder::buildWorkspace(const SingleSignal& signal) con
 		++count;
 	}
 
+	#ifdef _OPENMP
+	#pragma omp parallel for
+	#endif
 	for (int i=0; i<count; ++i) {
 		generators[i]->generate(*maps[i], signal);
 	}
