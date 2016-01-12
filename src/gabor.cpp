@@ -5,6 +5,22 @@
 #include "fftw.hpp"
 #include "gabor.hpp"
 
+/**
+ * If the scalar product between two normalized Gabor atoms is smaller
+ * than this value, the atoms are classified as orthogonal.
+ */
+const double ORTHOGONALITY = 1.0e-8;
+
+/**
+ * Multiply given array/vector/buffer by discretely sampled Gabor function,
+ * i.e. transform x[t] := x[t] g[t], where g[t] ~ exp(−π(t-t₀)²/s²).
+ * The function is L²-normalized: Σ g[t]² Δt = 1.
+ *
+ * @param buffer  array values x[0], x[Δt], x[2Δt], ...
+ * @param step    sampling step Δt (inverse of sampling frequency)
+ * @param center  center t₀ of Gabor function
+ * @param width   width s of Gabor function
+ */
 template<typename T>
 static void gaussize(T& buffer, double step, double center, double width) {
 	const double norm = sqrt(M_SQRT2 / width);
@@ -111,17 +127,36 @@ void GaborMapGenerator2::generate(TimeFreqMap<complex>& map, const SingleSignal&
 
 //------------------------------------------------------------------------------
 
-complex GaborWorkspace::computeProduct(double s1, double f1, double t1, double s2, double f2, double t2) {
-	double S = s1*s1*s2*s2;
-	double A = s1*s1 + s2*s2;
-	double B = s1*s1*t2 + s2*s2*t1;
-	double C = s1*s1*t2*t2 + s2*s2*t1*t1;
+struct GaborProductBase {
+	const double s1, s12, s2, s22, S, A, s3, s32, product;
 
-	double f3 = f1 - f2;
-	double s3 = sqrt(S / A);
-	double phi3 = (t2 - t1) * (f1*s1*s1 + f2*s2*s2) / A;
-	return exp(-M_PI/S*(C-B*B/A)-M_PI*f3*f3*s3*s3) * M_SQRT2 * s3 / sqrt(s1 * s2) * std::polar(1.0, 2*M_PI*phi3);
-}
+	GaborProductBase(double s1, double s2) :
+	s1(s1), s12(s1*s1),
+	s2(s2), s22(s2*s2),
+	S(s12*s22), A(s12 + s22),
+	s3(sqrt(S / A)), s32(s3*s3),
+	product(M_SQRT2 * s3 / sqrt(s1 * s2))
+	{ }
+};
+
+struct GaborProductCalculator {
+	const GaborProductBase* const base;
+	const double t1, t2, B, C, product;
+
+	GaborProductCalculator(const GaborProductBase* base, double t1, double t2) :
+	base(base),
+	t1(t1), t2(t2),
+	B(base->s12*t2 + base->s22*t1),
+	C(base->s12*t2*t2 + base->s22*t1*t1),
+	product(base->product * exp(-M_PI/base->S*(C-B*B/base->A)))
+	{ }
+
+	complex calculate(double f1, double f2) const {
+		double f3 = f1 - f2;
+		double phi3 = (t2 - t1) * (f1*base->s12 + f2*base->s22) / base->A;
+		return product * exp(-M_PI*f3*f3*base->s32) * std::polar(1.0, 2*M_PI*phi3);
+	}
+};
 
 Atom GaborWorkspace::findBestMatch() const {
 	double modulusBest = 0;
@@ -167,14 +202,18 @@ void GaborWorkspace::subtractAtom(const Atom& atom) {
 	const double tA = atom.params[2] / freqSampling;
 	complex V = std::polar(atom.params[1] * sqrt(sA / M_SQRT2), atom.params[5]);
 	for (auto map : maps) {
-		const double s0 = map->s;
-		for (size_t fIndex=0; fIndex<map->fCount; ++fIndex) {
-			const double f0 = map->f(fIndex);
+		GaborProductBase base(sA, map->s);
+		if (base.product >= ORTHOGONALITY) {
 			for (size_t tIndex=0; tIndex<map->tCount; ++tIndex) {
-				const double t0 = map->t(tIndex);
-				complex prodP = computeProduct(sA, +fA, tA, s0, f0, t0);
-				complex prodN = computeProduct(sA, -fA, tA, s0, f0, t0);
-				map->value(fIndex, tIndex) -= 0.5 * (V * prodP + std::conj(V) * prodN);
+				GaborProductCalculator calc(&base, tA, map->t(tIndex));
+				if (calc.product >= ORTHOGONALITY) {
+					for (size_t fIndex=0; fIndex<map->fCount; ++fIndex) {
+						const double f0 = map->f(fIndex);
+						complex prodP = calc.calculate(fA, f0);
+						complex prodN = calc.calculate(-fA, f0);
+						map->value(fIndex, tIndex) -= 0.5 * (V * prodP + std::conj(V) * prodN);
+					}
+				}
 			}
 		}
 	}
