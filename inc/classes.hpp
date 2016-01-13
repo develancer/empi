@@ -17,11 +17,10 @@ class TimeFreqMap {
 	void operator=(const TimeFreqMap&); // forbidden
 
 public:	
-	const double s;
 	const size_t fCount, tCount;
 
-	TimeFreqMap(double s, size_t fCount, size_t tCount)
-	: s(s), fCount(fCount), tCount(tCount) {
+	TimeFreqMap(size_t fCount, size_t tCount)
+	: fCount(fCount), tCount(tCount) {
 		pointer = static_cast<T*>(calloc(fCount * tCount, sizeof(T)));
 		fValues = static_cast<double*>(calloc(fCount, sizeof(double)));
 		tValues = static_cast<double*>(calloc(tCount, sizeof(double)));
@@ -65,7 +64,7 @@ public:
 	virtual ~Workspace() =default;
 	virtual Atom findBestMatch() const =0;
 	virtual size_t getAtomCount(void) const =0;
-	virtual void subtractAtom(const Atom& atom) =0;
+	virtual void subtractAtom(const Atom& atom, SingleSignal& signal) =0;
 };
 
 class WorkspaceBuilder {

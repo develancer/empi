@@ -10,6 +10,7 @@
 
 SingleChannelResult Decomposition::compute(const DecompositionSettings& settings, const WorkspaceBuilder& builder, const SingleSignal& signal) {
 	std::unique_ptr<Workspace> workspace( builder.buildWorkspace(signal) );
+	SingleSignal residue(signal);
 	SingleChannelResult result;
 	size_t atomCount = workspace->getAtomCount();
 	for (int iteration=1; iteration<=settings.iterationMax; ++iteration) {
@@ -19,7 +20,7 @@ SingleChannelResult Decomposition::compute(const DecompositionSettings& settings
 		if (iteration == settings.iterationMax) {
 			break;
 		}
-		workspace->subtractAtom(best);
+		workspace->subtractAtom(best, residue);
 	}
 	return result;
 }

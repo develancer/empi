@@ -2,7 +2,6 @@
  * University of Warsaw, Department of Biomedical Physics *
  * See LICENCE for details.                               *
  **********************************************************/
-#include "fftw.hpp"
 #include "gabor.hpp"
 
 /**
@@ -33,130 +32,63 @@ static void gaussize(T& buffer, double step, double center, double width) {
 
 //------------------------------------------------------------------------------
 
-void GaborMapGenerator0::generate(TimeFreqMap<complex>& map, const SingleSignal& signal) {
-	for (size_t ti=0; ti<map.tCount; ++ti) {
-		map.t(ti) = ti * tMax / (map.tCount - 1);
-	}
-	for (size_t fi=0; fi<map.fCount; ++fi) {
-		map.f(fi) = (fi + 1) * freqSampling / Nfft;
-	}
+GaborProductEstimator::GaborProductEstimator(double s1, double s2) :
+s12(s1*s1), s22(s2*s2), A(s12 + s22),
+part(M_SQRT2 * sqrt(s1 * s2 / A))
+{ }
 
-	const size_t N = signal.samples.size();
-	const double norm = sqrt(M_SQRT2 / map.s) / freqSampling;
-	for (size_t ti=0; ti<map.tCount; ++ti) {
-		for (size_t fi=0; fi<map.fCount; ++fi) {
-			complex sum = 0.0;
-			for (size_t i=0; i<N; ++i) {
-				double x = i/freqSampling - map.t(ti);
-				double x_width = x / map.s;
-				sum += signal.samples[i] * exp(-M_PI * x_width * x_width) * std::polar(1.0, 2*M_PI*map.f(fi)*x);
-			}
-			map.value(fi, ti) = norm * sum;
-		}
-	}
-}
-
-void GaborMapGenerator1::generate(TimeFreqMap<complex>& map, const SingleSignal& signal) {
-	for (size_t ti=0; ti<map.tCount; ++ti) {
-		map.t(ti) = ti * tMax / (map.tCount - 1);
-	}
-	for (size_t fi=0; fi<map.fCount; ++fi) {
-		map.f(fi) = (fi + 1) * freqSampling / Nfft;
-	}
-
-	fftwDouble input(Nfft);
-	fftwComplex output(map.fCount + 1);
-	fftwPlan plan(Nfft, input, output, FFTW_ESTIMATE | FFTW_DESTROY_INPUT);
-
-	const long N = signal.samples.size();
-	for (size_t ti=0; ti<map.tCount; ++ti) {
-		const double t0 = map.t(ti);
-		long iL = std::max(0L, lrint((t0 - hwGabor) * freqSampling));
-		long iR = std::min(N-1, lrint((t0 + hwGabor) * freqSampling));
-		const double t0fixed = t0 - iL / freqSampling;
-
-		input.zero();
-		for (long i=iL; i<=iR; ++i) {
-			input[i-iL] = signal.samples[i];
-		}
-		gaussize(input, 1.0/freqSampling, t0fixed, map.s);
-		plan.execute();
-
-		// kopiujemy wartości output[1..fCount]
-		const double norm = 1.0 / freqSampling;
-		const double mult = 2 * M_PI * t0fixed;
-		for (size_t fi=0; fi<map.fCount; ++fi) {
-			map.value(fi, ti) = norm * output[fi+1] * std::polar(1.0, map.f(fi) * mult);
-		}
-	}
-}
-
-void GaborMapGenerator2::generate(TimeFreqMap<complex>& map, const SingleSignal& signal) {
-	for (size_t ti=0; ti<map.tCount; ++ti) {
-		map.t(ti) = ti / freqSampling;
-	}
-	for (size_t fi=0; fi<map.fCount; ++fi) {
-		map.f(fi) = (fi + 1) * 0.5*freqSampling / map.fCount;
-	}
-
-	fftwComplex transform(Nfft);
-	fftwComplex input(Nfft);
-	fftwComplex output(Nfft);
-	fftwPlan planForward(Nfft, input, transform, FFTW_FORWARD, FFTW_ESTIMATE | FFTW_DESTROY_INPUT);
-	fftwPlan planBackward(Nfft, input, output, FFTW_BACKWARD, FFTW_ESTIMATE | FFTW_DESTROY_INPUT);
-
-	input.zero();
-	for (size_t i=0; i<signal.samples.size(); ++i) {
-		input[i] = signal.samples[i];
-	}
-	planForward.execute();
-
-	for (size_t fi=0; fi<map.fCount; ++fi) {
-		const double f0 = map.f(fi);
-
-		input = transform;
-		gaussize(input, freqSampling/Nfft, f0, 1/map.s);
-		planBackward.execute();
-
-		const double norm = 1.0 / Nfft;
-		for (size_t ti=0; ti<map.tCount; ++ti) {
-			map.value(fi, ti) = norm * output[ti];
-		}
-	}
+double GaborProductEstimator::estimate(double t1, double t2) const {
+	double dt = t1 - t2;
+	return part * exp(-M_PI/A * dt * dt);
 }
 
 //------------------------------------------------------------------------------
 
-struct GaborProductBase {
-	const double s1, s12, s2, s22, S, A, s3, s32, product;
-
-	GaborProductBase(double s1, double s2) :
-	s1(s1), s12(s1*s1),
-	s2(s2), s22(s2*s2),
-	S(s12*s22), A(s12 + s22),
-	s3(sqrt(S / A)), s32(s3*s3),
-	product(M_SQRT2 * s3 / sqrt(s1 * s2))
-	{ }
-};
-
-struct GaborProductCalculator {
-	const GaborProductBase* const base;
-	const double t1, t2, B, C, product;
-
-	GaborProductCalculator(const GaborProductBase* base, double t1, double t2) :
-	base(base),
-	t1(t1), t2(t2),
-	B(base->s12*t2 + base->s22*t1),
-	C(base->s12*t2*t2 + base->s22*t1*t1),
-	product(base->product * exp(-M_PI/base->S*(C-B*B/base->A)))
-	{ }
-
-	complex calculate(double f1, double f2) const {
-		double f3 = f1 - f2;
-		double phi3 = (t2 - t1) * (f1*base->s12 + f2*base->s22) / base->A;
-		return product * exp(-M_PI*f3*f3*base->s32) * std::polar(1.0, 2*M_PI*phi3);
+GaborWorkspaceMap::GaborWorkspaceMap(double s, size_t fCount, size_t tCount, double freqSampling, double tMax)
+:	TimeFreqMap<complex>(fCount, tCount),
+	Nfft(fCount*2), freqSampling(freqSampling),
+	input(Nfft), output(fCount+1),
+	plan(Nfft, input, output, FFTW_ESTIMATE | FFTW_DESTROY_INPUT),
+	s(s)
+{
+	for (size_t ti=0; ti<tCount; ++ti) {
+		t(ti) = ti * tMax / (tCount - 1);
 	}
-};
+	for (size_t fi=0; fi<fCount; ++fi) {
+		f(fi) = (fi + 1) * freqSampling / Nfft;
+	}
+}
+
+void GaborWorkspaceMap::compute(const SingleSignal& signal) {
+	for (size_t tIndex=0; tIndex<tCount; ++tIndex) {
+		compute(signal, tIndex);
+	}
+}
+
+void GaborWorkspaceMap::compute(const SingleSignal& signal, size_t tIndex) {
+	const long N = signal.samples.size();
+	const double t0 = t(tIndex);
+	const double hwGabor = 3.0 * s; // TODO
+	long iL = std::max(0L, lrint((t0 - hwGabor) * signal.freqSampling));
+	long iR = std::min(N-1, lrint((t0 + hwGabor) * signal.freqSampling));
+	const double t0fixed = t0 - iL / signal.freqSampling;
+
+	input.zero();
+	for (long i=iL; i<=iR; ++i) {
+		input[i-iL] = signal.samples[i];
+	}
+	gaussize(input, 1.0/signal.freqSampling, t0fixed, s);
+	plan.execute();
+
+	// kopiujemy wartości output[1..fCount]
+	const double norm = 1.0 / signal.freqSampling;
+	const double mult = 2 * M_PI * t0fixed;
+	for (size_t fIndex=0; fIndex<fCount; ++fIndex) {
+		value(fIndex, tIndex) = norm * output[fIndex+1] * std::polar(1.0, f(fIndex) * mult);
+	}
+}
+
+//------------------------------------------------------------------------------
 
 Atom GaborWorkspace::findBestMatch() const {
 	double modulusTotal = 0;
@@ -206,6 +138,22 @@ Atom GaborWorkspace::findBestMatch() const {
 			}
 		}
 	}
+
+	// correction for fast-oscillating Gabor atoms
+	// which is too expensive to implement inside the loop above
+	// TODO: find semi-analytical approximation for this
+	size_t N = buffer.size();
+	double trueNorm = 0.0;
+	for (size_t i=0; i<N; ++i) {
+		double i0 = i - atomTotal.params[2];
+		double t_width = i0 / atomTotal.params[3];
+		double value = atomTotal.params[1] * exp(-M_PI * t_width * t_width) * cos(M_PI * atomTotal.params[4] * i0 + atomTotal.params[5]);
+		trueNorm += value * value;
+	}
+	trueNorm = modulusTotal / sqrt(trueNorm);
+	atomTotal.params[0] *= trueNorm;
+	atomTotal.params[1] *= trueNorm;
+
 	return atomTotal;
 }
 
@@ -217,26 +165,33 @@ size_t GaborWorkspace::getAtomCount(void) const {
 	return atomCount;
 }
 
-void GaborWorkspace::subtractAtom(const Atom& atom) {
+void GaborWorkspace::subtractAtom(const Atom& atom, SingleSignal& signal) {
 	const double sA = atom.params[3] / freqSampling;
 	const double fA = atom.params[4] * freqSampling / 2.0;
 	const double tA = atom.params[2] / freqSampling;
-	complex V = std::polar(atom.params[1] * sqrt(sA / M_SQRT2), atom.params[5]);
-	for (auto map : maps) {
-		GaborProductBase base(sA, map->s);
-		if (base.product >= ORTHOGONALITY) {
-			#ifdef _OPENMP
-			#pragma omp parallel for schedule(static,1)
-			#endif
-			for (size_t tIndex=0; tIndex<map->tCount; ++tIndex) {
-				GaborProductCalculator calc(&base, tA, map->t(tIndex));
-				if (calc.product >= ORTHOGONALITY) {
-					for (size_t fIndex=0; fIndex<map->fCount; ++fIndex) {
-						const double f0 = map->f(fIndex);
-						complex prodP = calc.calculate(fA, f0);
-						complex prodN = calc.calculate(-fA, f0);
-						map->value(fIndex, tIndex) -= 0.5 * (V * prodP + std::conj(V) * prodN);
-					}
+
+	const double amplitude = atom.params[1];
+	const double omega = 2.0 * M_PI * fA;
+	const double phase = atom.params[5];
+
+	const size_t N = signal.samples.size();
+	for (size_t i=0; i<N; ++i) {
+		double t = i / freqSampling - tA;
+		double t_width = t / sA;
+		signal.samples[i] -= amplitude * exp(-M_PI * t_width * t_width) * cos(omega * t + phase);
+	}
+
+	const int count = maps.size();
+	#ifdef _OPENMP
+	#pragma omp parallel for schedule(dynamic,1)
+	#endif
+	for (int i=0; i<count; ++i) {
+		GaborWorkspaceMap& map = *maps[i];
+		GaborProductEstimator estimator(sA, map.s);
+		if (estimator.part >= ORTHOGONALITY) {
+			for (size_t tIndex=0; tIndex<map.tCount; ++tIndex) {
+				if (estimator.estimate(tA, map.t(tIndex)) >= ORTHOGONALITY) {
+					map.compute(signal, tIndex);
 				}
 			}
 		}
@@ -255,8 +210,7 @@ Workspace* GaborWorkspaceBuilder::buildWorkspace(const SingleSignal& signal) con
 	const long N = signal.samples.size();
 	const double tMax = (N-1) / signal.freqSampling;
 
-	std::vector<std::shared_ptr<TimeFreqMap<complex>>> maps;
-	std::vector<std::shared_ptr<GaborMapGenerator>> generators;
+	std::vector<std::shared_ptr<GaborWorkspaceMap>> maps;
 	int count = 0;
 	for (double s=scaleMin; s<=scaleMax; s*=a) {
 		const double dt = root * s;
@@ -265,35 +219,19 @@ Workspace* GaborWorkspaceBuilder::buildWorkspace(const SingleSignal& signal) con
 
 		const long Ngauss = lrint(2.0 * hwGabor * signal.freqSampling - 0.5) + 1;
 
-		const long Nfft1 = fftwRound( std::max(Ngauss, lrint(signal.freqSampling/df + 0.5)) );
-		const long tCount1 = lrint(tMax/dt + 0.5) + 1;
-		const long fCount1 = Nfft1 / 2;
+		const long Nfft = fftwRound( std::max(Ngauss, lrint(signal.freqSampling/df + 0.5)) );
+		const long tCount = lrint(tMax/dt + 0.5) + 1;
+		const long fCount = Nfft / 2;
 
-		/* GaborMapGenerator2 is optimized for short (non-oscillating) atoms
-		   but is quite buggy at the moment. */
-//		const long Nfft2 = fftwRound(N + Ngauss);
-//		const long tCount2 = N;
-//		const long fCount2 = lrint(0.5 * signal.freqSampling / df + 0.5);
-
-		TimeFreqMap<complex>* map;
-		GaborMapGenerator* generator;
-//		if (tCount1 * fCount1 <= tCount2 * fCount2) {
-			map = new TimeFreqMap<complex>(s, fCount1, tCount1);
-			generator = new GaborMapGenerator1(Ngauss, Nfft1, hwGabor, tMax, signal.freqSampling);
-//		} else {
-//			map = new TimeFreqMap<complex>(s, fCount2, tCount2);
-//			generator = new GaborMapGenerator2(Ngauss, Nfft2, hwGabor, tMax, signal.freqSampling);
-//		}
-		maps.push_back(std::shared_ptr<TimeFreqMap<complex>>(map));
-		generators.push_back(std::shared_ptr<GaborMapGenerator>(generator));
+		maps.push_back(std::make_shared<GaborWorkspaceMap>(s, fCount, tCount, signal.freqSampling, tMax));
 		++count;
 	}
 
 	#ifdef _OPENMP
-	#pragma omp parallel for
+	#pragma omp parallel for schedule(dynamic,1)
 	#endif
 	for (int i=0; i<count; ++i) {
-		generators[i]->generate(*maps[i], signal);
+		maps[i]->compute(signal);
 	}
-	return new GaborWorkspace(signal.freqSampling, std::move(maps));
+	return new GaborWorkspace(signal.freqSampling, std::move(maps), N);
 }

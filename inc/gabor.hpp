@@ -7,22 +7,50 @@
 
 #include <memory>
 #include "classes.hpp"
+#include "fftw.hpp"
+
+struct GaborProductEstimator {
+	const double s12, s22, A, part;
+
+	GaborProductEstimator(double s1, double s2);
+
+	double estimate(double t1, double t2) const;
+};
+
+class GaborWorkspaceMap : public TimeFreqMap<complex> {
+	const int Nfft;
+	const double freqSampling;
+	fftwDouble input;
+	fftwComplex output;
+	fftwPlan plan;
+
+	GaborWorkspaceMap(const GaborWorkspaceMap&); // forbidden
+	void operator=(const GaborWorkspaceMap&); // forbidden
+
+public:
+	const double s;
+
+	GaborWorkspaceMap(double s, size_t fCount, size_t tCount, double freqSampling, double tMax);
+
+	void compute(const SingleSignal& signal);
+
+	void compute(const SingleSignal& signal, size_t tIndex);
+};
 
 class GaborWorkspace : public Workspace {
 	const double freqSampling;
-	std::vector<std::shared_ptr<TimeFreqMap<complex>>> maps;
+	std::vector<std::shared_ptr<GaborWorkspaceMap>> maps;
+	std::vector<double> buffer;
 
 public:
-	static complex computeProduct(double s1, double t1, double f1, double s2, double t2, double f2);
-
-	GaborWorkspace(double freqSampling, std::vector<std::shared_ptr<TimeFreqMap<complex>>>&& maps)
-	: freqSampling(freqSampling), maps(maps) { }
+	GaborWorkspace(double freqSampling, std::vector<std::shared_ptr<GaborWorkspaceMap>>&& maps, int N)
+	: freqSampling(freqSampling), maps(maps), buffer(N) { }
 
 	Atom findBestMatch() const;
 
 	size_t getAtomCount(void) const;
 
-	void subtractAtom(const Atom&);
+	void subtractAtom(const Atom& atom, SingleSignal& signal);
 };
 
 class GaborWorkspaceBuilder : public WorkspaceBuilder {
@@ -36,44 +64,6 @@ public:
 	Workspace* buildWorkspace(const SingleSignal&) const;
 
 	void writeAtom(const Atom&, FILE*) const;
-};
-
-class GaborMapGenerator {
-protected:
-	const long Ngauss, Nfft;
-	const double hwGabor, tMax, freqSampling;
-
-public:
-	GaborMapGenerator(long Ngauss, long Nfft, double hwGabor, double tMax, double freqSampling)
-	: Ngauss(Ngauss), Nfft(Nfft), hwGabor(hwGabor), tMax(tMax), freqSampling(freqSampling) { }
-
-	virtual ~GaborMapGenerator() { }
-
-	virtual void generate(TimeFreqMap<complex>& map, const SingleSignal& signal) =0;
-};
-
-class GaborMapGenerator0 : public GaborMapGenerator {
-public:
-	GaborMapGenerator0(long Ngauss, long Nfft, double hwGabor, double tMax, double freqSampling)
-	: GaborMapGenerator(Ngauss, Nfft, hwGabor, tMax, freqSampling) { }
-
-	void generate(TimeFreqMap<complex>& map, const SingleSignal& signal);
-};
-
-class GaborMapGenerator1 : public GaborMapGenerator {
-public:
-	GaborMapGenerator1(long Ngauss, long Nfft, double hwGabor, double tMax, double freqSampling)
-	: GaborMapGenerator(Ngauss, Nfft, hwGabor, tMax, freqSampling) { }
-
-	void generate(TimeFreqMap<complex>& map, const SingleSignal& signal);
-};
-
-class GaborMapGenerator2 : public GaborMapGenerator {
-public:
-	GaborMapGenerator2(long Ngauss, long Nfft, double hwGabor, double tMax, double freqSampling)
-	: GaborMapGenerator(Ngauss, Nfft, hwGabor, tMax, freqSampling) { }
-
-	void generate(TimeFreqMap<complex>& map, const SingleSignal& signal);
 };
 
 #endif	/* EMPI_GABOR_HPP */
