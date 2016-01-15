@@ -91,6 +91,7 @@ void GaborWorkspaceMap::compute(const SingleSignal& signal, size_t tIndex) {
 //------------------------------------------------------------------------------
 
 Atom GaborWorkspace::findBestMatch() const {
+	const double freqNyquist = 0.5 * freqSampling;
 	double modulusTotal = 0;
 	Atom atomTotal;
 	for (auto map : maps) {
@@ -108,11 +109,16 @@ Atom GaborWorkspace::findBestMatch() const {
 			#endif
 			for (size_t fIndex=0; fIndex<map->fCount; ++fIndex) {
 				const double f = map->f(fIndex);
-				const double expFactor = exp(-2*M_PI*s*s*f*f);
+				const bool isHighFreq = (f > 0.5 * freqNyquist);
+				// for high frequencies, one can write
+				// cos(2π(fN-Δf)(t-t₀)+φ) = (−1)^n cos(2πΔf(t-t₀)+(2πfNt₀−φ))
+				const double f4Norm = isHighFreq ? (freqNyquist - f) : f;
+				const double expFactor = exp(-2*M_PI*s*s*f4Norm*f4Norm);
 				for (size_t tIndex=0; tIndex<map->tCount; ++tIndex) {
 					complex value = map->value(fIndex, tIndex);
 					double phase = std::arg(value);
-					double realFactor = 1.0 + cos(2*phase) * expFactor;
+					double phase4Norm = isHighFreq ? (2*M_PI*freqNyquist*map->t(tIndex) - phase) : phase;
+					double realFactor = 1.0 + cos(2*phase4Norm) * expFactor;
 					double modulus = std::abs(value) * M_SQRT2 * sqrt(freqSampling / realFactor);
 					if (modulus > modulusBest) {
 						atomBest.type = ATOM_GABOR;
@@ -138,21 +144,6 @@ Atom GaborWorkspace::findBestMatch() const {
 			}
 		}
 	}
-
-	// correction for fast-oscillating Gabor atoms
-	// which is too expensive to implement inside the loop above
-	// TODO: find semi-analytical approximation for this
-	size_t N = buffer.size();
-	double trueNorm = 0.0;
-	for (size_t i=0; i<N; ++i) {
-		double i0 = i - atomTotal.params[2];
-		double t_width = i0 / atomTotal.params[3];
-		double value = atomTotal.params[1] * exp(-M_PI * t_width * t_width) * cos(M_PI * atomTotal.params[4] * i0 + atomTotal.params[5]);
-		trueNorm += value * value;
-	}
-	trueNorm = modulusTotal / sqrt(trueNorm);
-	atomTotal.params[0] *= trueNorm;
-	atomTotal.params[1] *= trueNorm;
 
 	return atomTotal;
 }
@@ -233,5 +224,5 @@ Workspace* GaborWorkspaceBuilder::buildWorkspace(const SingleSignal& signal) con
 	for (int i=0; i<count; ++i) {
 		maps[i]->compute(signal);
 	}
-	return new GaborWorkspace(signal.freqSampling, std::move(maps), N);
+	return new GaborWorkspace(signal.freqSampling, std::move(maps));
 }

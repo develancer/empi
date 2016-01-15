@@ -40,11 +40,10 @@ public:
 class GaborWorkspace : public Workspace {
 	const double freqSampling;
 	std::vector<std::shared_ptr<GaborWorkspaceMap>> maps;
-	std::vector<double> buffer;
 
 public:
-	GaborWorkspace(double freqSampling, std::vector<std::shared_ptr<GaborWorkspaceMap>>&& maps, int N)
-	: freqSampling(freqSampling), maps(maps), buffer(N) { }
+	GaborWorkspace(double freqSampling, std::vector<std::shared_ptr<GaborWorkspaceMap>>&& maps)
+	: freqSampling(freqSampling), maps(maps) { }
 
 	Atom findBestMatch() const;
 
