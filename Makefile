@@ -1,5 +1,7 @@
 # University of Warsaw, Department of Biomedical Physics
-# See LICENCE for details.
+#   Enhanced Matching Pursuit Implementation (empi)
+# See README.md and LICENCE for details.
+
 CXXFLAGS = -std=c++11 -fopenmp -Iinc -Wall -Wextra -Wpedantic -O2
 LDFLAGS = -lfftw3
 
@@ -17,4 +19,4 @@ obj/%.o : src/%.cpp | obj
 	$(CXX) $(CXXFLAGS) -c -o $@ $^
 
 obj :
-	mkdir -pv obj
+	@mkdir -pv obj
