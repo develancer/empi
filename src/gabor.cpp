@@ -5,6 +5,11 @@
 #include "gabor.hpp"
 
 /**
+ * Minimum scale parameter for Gabor atoms, in number of samples.
+ */
+const int MIN_SCALE_IN_SAMPLES = 50;
+
+/**
  * If the scalar product between two normalized Gabor atoms is smaller
  * than this value, the atoms are classified as orthogonal.
  */
@@ -46,16 +51,16 @@ double GaborProductEstimator::estimate(double t1, double t2) const {
 
 GaborWorkspaceMap::GaborWorkspaceMap(double s, size_t fCount, size_t tCount, double freqSampling, double tMax)
 :	TimeFreqMap<complex>(fCount, tCount),
-	Nfft(fCount*2), freqSampling(freqSampling),
-	input(Nfft), output(fCount+1),
+	Nfft((fCount-1)*2), freqSampling(freqSampling),
+	input(Nfft), output(fCount),
 	plan(Nfft, input, output, FFTW_ESTIMATE | FFTW_DESTROY_INPUT),
-	s(s)
+	s(s), atomCount(fCount * tCount)
 {
 	for (size_t ti=0; ti<tCount; ++ti) {
 		t(ti) = ti * tMax / (tCount - 1);
 	}
 	for (size_t fi=0; fi<fCount; ++fi) {
-		f(fi) = (fi + 1) * freqSampling / Nfft;
+		f(fi) = fi * freqSampling / Nfft;
 	}
 }
 
@@ -80,11 +85,10 @@ void GaborWorkspaceMap::compute(const SingleSignal& signal, size_t tIndex) {
 	gaussize(input, 1.0/signal.freqSampling, t0fixed, s);
 	plan.execute();
 
-	// kopiujemy wartości output[1..fCount]
 	const double norm = 1.0 / signal.freqSampling;
 	const double mult = 2 * M_PI * t0fixed;
 	for (size_t fIndex=0; fIndex<fCount; ++fIndex) {
-		value(fIndex, tIndex) = norm * output[fIndex+1] * std::polar(1.0, f(fIndex) * mult);
+		value(fIndex, tIndex) = norm * output[fIndex] * std::polar(1.0, f(fIndex) * mult);
 	}
 }
 
@@ -94,6 +98,7 @@ Atom GaborWorkspace::findBestMatch() const {
 	const double freqNyquist = 0.5 * freqSampling;
 	double modulusTotal = 0;
 	Atom atomTotal;
+	size_t testedCount = 0;
 	for (auto map : maps) {
 		const double s = map->s;
 		const double amplFactor = 2.0 * sqrt(M_SQRT2 / s);
@@ -143,6 +148,7 @@ Atom GaborWorkspace::findBestMatch() const {
 				}
 			}
 		}
+		std::cout << "TESTED" << '\t' << (testedCount += map->atomCount) << std::endl;
 	}
 
 	return atomTotal;
@@ -151,7 +157,7 @@ Atom GaborWorkspace::findBestMatch() const {
 size_t GaborWorkspace::getAtomCount(void) const {
 	size_t atomCount = 0;
 	for (auto map : maps) {
-		atomCount += map->fCount * map->tCount;
+		atomCount += map->atomCount;
 	}
 	return atomCount;
 }
@@ -192,6 +198,7 @@ void GaborWorkspace::subtractAtom(const Atom& atom, SingleSignal& signal) {
 //------------------------------------------------------------------------------
 
 Workspace* GaborWorkspaceBuilder::buildWorkspace(const SingleSignal& signal) const {
+	double scaleMin = MIN_SCALE_IN_SAMPLES / signal.freqSampling;
 	double scaleMax = signal.samples.size() / signal.freqSampling;
 	double root = sqrt(-2.0/M_PI * log(1.0-energyError));
 	double aDenomSqrt = 1.0 - energyError;
@@ -212,7 +219,7 @@ Workspace* GaborWorkspaceBuilder::buildWorkspace(const SingleSignal& signal) con
 
 		const long Nfft = fftwRound( std::max(Ngauss, lrint(signal.freqSampling/df + 0.5)) );
 		const long tCount = lrint(tMax/dt + 0.5) + 1;
-		const long fCount = Nfft / 2;
+		const long fCount = Nfft / 2 + 1;
 
 		maps.push_back(std::make_shared<GaborWorkspaceMap>(s, fCount, tCount, signal.freqSampling, tMax));
 		++count;

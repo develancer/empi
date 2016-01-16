@@ -77,6 +77,7 @@ public:
 
 struct DecompositionSettings {
 	int iterationMax;
+	double residualEnergy;
 };
 
 class Decomposition {

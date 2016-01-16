@@ -13,14 +13,24 @@ SingleChannelResult Decomposition::compute(const DecompositionSettings& settings
 	SingleSignal residue(signal);
 	SingleChannelResult result;
 	size_t atomCount = workspace->getAtomCount();
+	const double totalEnergy = signal.computeEnergy();
+	double residueEnergy = totalEnergy;
+	if (totalEnergy == 0) {
+		throw Exception("signalIsEmpty");
+	}
 	for (int iteration=1; iteration<=settings.iterationMax; ++iteration) {
-		printf("ATOM\t%d\t%zd\t%.2f\t%.2f\n", iteration-1, atomCount, 0.0, 0.0);
+		double progress = std::max(100.0 * iteration / settings.iterationMax, 100.0 * (1.0 - residueEnergy / totalEnergy));
+		std::cout << "ATOM" << '\t' << (iteration-1) << '\t' << atomCount << '\t' << progress << '\t' << progress << std::endl;
 		Atom best = workspace->findBestMatch();
 		result.push_back(best);
 		if (iteration == settings.iterationMax) {
 			break;
 		}
 		workspace->subtractAtom(best, residue);
+		residueEnergy = residue.computeEnergy();
+		if (residueEnergy / totalEnergy <= settings.residualEnergy) {
+			break;
+		}
 	}
 	return result;
 }
@@ -31,7 +41,8 @@ MultiChannelResult SmpDecomposition::compute(const DecompositionSettings& settin
 	MultiChannelResult result;
 	int channelNumber = 0;
 	for (const auto& channel : signal.channels) {
-		printf("CHANNEL\t%d\n", channelNumber++);
+		std::cout << "CHANNEL" << '\t' << channelNumber++ << std::endl;
+		fflush(stdout);
 		result.push_back(Decomposition::compute(settings, builder, channel));
 	}
 	return result;

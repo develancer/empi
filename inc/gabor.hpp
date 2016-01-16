@@ -29,6 +29,7 @@ class GaborWorkspaceMap : public TimeFreqMap<complex> {
 
 public:
 	const double s;
+	const size_t atomCount;
 
 	GaborWorkspaceMap(double s, size_t fCount, size_t tCount, double freqSampling, double tMax);
 
@@ -54,11 +55,10 @@ public:
 
 class GaborWorkspaceBuilder : public WorkspaceBuilder {
 	double energyError;
-	double scaleMin;
 
 public:
-	GaborWorkspaceBuilder(double energyError, double scaleMin)
-	: energyError(energyError), scaleMin(scaleMin) { }
+	GaborWorkspaceBuilder(double energyError)
+	: energyError(energyError) { }
 
 	Workspace* buildWorkspace(const SingleSignal&) const;
 

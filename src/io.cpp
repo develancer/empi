@@ -13,6 +13,9 @@ MultiSignal SignalReader::read() const {
 		result.channels[i].freqSampling = freqSampling;
 	}
 	FILE* file = fopen(pathToSignalFile.c_str(), "r");
+	if (!file) {
+		throw Exception("couldNotOpenSignalFile");
+	}
 	while (fread(sample.data(), sizeof(float), channelCount, file) == static_cast<size_t>(channelCount)) {
 		for (int i=0; i<C; ++i) {
 			result.channels[i].samples.push_back(sample[selectedChannels[i]-1]);
@@ -30,6 +33,9 @@ void BookWriter::write(const MultiSignal& signal, const MultiChannelResult& resu
 	BookDataAtomHeader headerAtom;
 
 	FILE* file = fopen(pathToBookFile.c_str(), "w");
+	if (!file) {
+		throw Exception("couldNotCreateOutputFile");
+	}
 
 	const size_t C = signal.channels.size();
 	const size_t N = C ? signal.channels.front().samples.size() : 0;

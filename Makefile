@@ -10,7 +10,7 @@ default : empi
 clean :
 	@rm -frv empi obj
 
-empi : src/empi.cpp obj/classes.o obj/gabor.o obj/io.o obj/mmp.o
+empi : src/empi.cpp obj/classes.o obj/conf.o obj/gabor.o obj/io.o obj/mmp.o
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS)
 
 obj/%.o : src/%.cpp | obj

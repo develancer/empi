@@ -6,6 +6,8 @@
 #define	EMPI_BASE_HPP
 
 #include <complex>
+#include <iostream>
+#include <string>
 #include <vector>
 
 enum AtomType { ATOM_GABOR = 13 };
@@ -23,10 +25,25 @@ typedef std::vector<SingleChannelResult> MultiChannelResult;
 struct SingleSignal {
 	double freqSampling;
 	Samples samples;
+
+	double computeEnergy() const {
+		const size_t N = samples.size();
+		double sum = 0.0;
+		for (size_t i=0; i<N; ++i) {
+			sum += samples[i] * samples[i];
+		}
+		return sum / freqSampling;
+	}
 };
 
 struct MultiSignal {
 	std::vector<SingleSignal> channels;
+};
+
+class Exception : public std::runtime_error {
+public:
+	explicit Exception(const std::string& camelCaseMessage)
+	: std::runtime_error(camelCaseMessage) { }
 };
 
 #endif	/* EMPI_BASE_HPP */
