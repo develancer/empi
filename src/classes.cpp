@@ -20,7 +20,7 @@ SingleChannelResult Decomposition::compute(const DecompositionSettings& settings
 		throw Exception("signalIsEmpty");
 	}
 	for (int iteration=1; iteration<=settings.iterationMax; ++iteration) {
-		double progress = std::max(100.0 * iteration / settings.iterationMax, 100.0 * (1.0 - residueEnergy / totalEnergy));
+		double progress = std::max(100.0 * (iteration-1) / settings.iterationMax, 100.0 * (1.0 - residueEnergy / totalEnergy));
 		std::cout << "ATOM" << '\t' << (iteration-1) << '\t' << atomCount << '\t' << progress << '\t' << progress << std::endl;
 		Atom best = workspace->findBestMatch();
 		result.push_back(best);
