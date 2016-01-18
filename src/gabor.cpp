@@ -17,22 +17,25 @@ const int MIN_SCALE_IN_SAMPLES = 50;
 const double ORTHOGONALITY = 1.0e-8;
 
 /**
- * Multiply given array/vector/buffer by discretely sampled Gabor function,
+ * Multiply given array by discretely sampled Gabor function,
  * i.e. transform x[t] := x[t] g[t], where g[t] ~ exp(−π(t-t₀)²/s²).
  * The function is L²-normalized: Σ g[t]² Δt = 1.
  *
  * @param buffer  array values x[0], x[Δt], x[2Δt], ...
+ * @param N       length of the array
  * @param step    sampling step Δt (inverse of sampling frequency)
  * @param center  center t₀ of Gabor function
  * @param width   width s of Gabor function
  */
 template<typename T>
-static void gaussize(T& buffer, double step, double center, double width) {
+static void gaussize(T* const __restrict buffer, const int N, double step, double center, double width) {
 	const double norm = sqrt(M_SQRT2 / width);
-	size_t N = buffer.size();
-	for (size_t i=0; i<N; ++i) {
-		double x_width = (i * step - center) / width;
-		buffer[i] *= norm * exp(-M_PI * x_width * x_width);
+	const double w = sqrt(M_PI) / width;
+	const double a = w * step;
+	const double b = w * center;
+	for (int i=0; i<N; ++i) {
+		const double x_width = a * i - b;
+		buffer[i] *= norm * exp(-x_width * x_width);
 	}
 }
 
@@ -83,7 +86,7 @@ void GaborWorkspaceMap::compute(const SingleSignal& signal, size_t tIndex) {
 	for (long i=iL; i<=iR; ++i) {
 		input[i-iL] = signal.samples[i];
 	}
-	gaussize(input, 1.0/signal.freqSampling, t0fixed, s);
+	gaussize(&input, iR-iL, 1.0/signal.freqSampling, t0fixed, s);
 	plan.execute();
 
 	const double norm = 1.0 / signal.freqSampling;

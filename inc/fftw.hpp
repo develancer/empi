@@ -13,9 +13,9 @@
 template<typename T>
 class fftwArray {
 	const long length;
-	T* pointer = 0;
+	T* pointer = nullptr;
 
-	fftwArray(const fftwArray&); // forbidden
+	fftwArray(const fftwArray&) =delete;
 
 public:
 	fftwArray(size_t length)
@@ -30,28 +30,23 @@ public:
 		if (pointer) fftw_free(pointer);
 	}
 
-	T* operator&() const {
+	inline T* operator&() const {
 		return pointer;
 	}
 
-	T& operator[](size_t i) {
+	inline T& operator[](size_t i) {
 		return pointer[i];
 	}
 
-	const T& operator[](size_t i) const {
+	inline const T& operator[](size_t i) const {
 		return pointer[i];
 	}
 
-	fftwArray& operator=(const fftwArray& source) {
-		memcpy(pointer, source.pointer, sizeof(T)*length);
-		return *this;
-	}
-
-	size_t size() const {
+	inline size_t size() const {
 		return length;
 	}
 
-	void zero() {
+	inline void zero() {
 		memset(pointer, 0, sizeof(T)*length);
 	}
 };
@@ -60,10 +55,10 @@ typedef fftwArray<double> fftwDouble;
 typedef fftwArray<std::complex<double>> fftwComplex;
 
 class fftwPlan {
-	fftw_plan plan = 0;
+	fftw_plan plan = nullptr;
 
-	fftwPlan(const fftwPlan&); // forbidden
-	void operator=(const fftwPlan&); // forbidden
+	fftwPlan(const fftwPlan&) =delete;
+	void operator=(const fftwPlan&) =delete;
 
 public:
 	inline fftwPlan(int Nfft, fftwComplex& input, fftwComplex& output, int sign, unsigned flags) {
