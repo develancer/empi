@@ -32,11 +32,11 @@ public:
 	const double s;
 	const size_t atomCount;
 
-	GaborWorkspaceMap(double s, size_t fCount, size_t tCount, double freqSampling, double tMax);
+	GaborWorkspaceMap(double s, int fCount, int tCount, double freqSampling, double tMax);
 
 	void compute(const SingleSignal& signal);
 
-	void compute(const SingleSignal& signal, size_t tIndex);
+	void compute(const SingleSignal& signal, int tIndex);
 };
 
 class GaborWorkspace : public Workspace {

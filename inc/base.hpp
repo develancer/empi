@@ -38,9 +38,9 @@ struct SingleSignal {
 	Samples samples;
 
 	double computeEnergy() const {
-		const size_t N = samples.size();
+		const int N = samples.size();
 		double sum = 0.0;
-		for (size_t i=0; i<N; ++i) {
+		for (int i=0; i<N; ++i) {
 			sum += samples[i] * samples[i];
 		}
 		return sum / freqSampling;

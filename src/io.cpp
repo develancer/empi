@@ -3,6 +3,7 @@
  *   Enhanced Matching Pursuit Implementation (empi)      *
  * See README.md and LICENCE for details.                 *
  **********************************************************/
+#include <limits>
 #include "io.hpp"
 
 MultiSignal SignalReader::read() const {
@@ -17,7 +18,11 @@ MultiSignal SignalReader::read() const {
 	if (!file) {
 		throw Exception("couldNotOpenSignalFile");
 	}
+	int leftToStore = std::numeric_limits<int>::max();
 	while (fread(sample.data(), sizeof(float), channelCount, file) == static_cast<size_t>(channelCount)) {
+		if (--leftToStore < 0) {
+			throw Exception("signalFileIsTooLongForThisMachine");
+		}
 		for (int i=0; i<C; ++i) {
 			result.channels[i].samples.push_back(sample[selectedChannels[i]-1]);
 		}
@@ -38,8 +43,8 @@ void BookWriter::write(const MultiSignal& signal, const MultiChannelResult& resu
 		throw Exception("couldNotCreateOutputFile");
 	}
 
-	const size_t C = signal.channels.size();
-	const size_t N = C ? signal.channels.front().samples.size() : 0;
+	const int C = signal.channels.size();
+	const int N = C ? signal.channels.front().samples.size() : 0;
 
 	setBE(headerStart.channelCount, C);
 	setBE(headerStart.dictionarySize, 0);
@@ -56,11 +61,11 @@ void BookWriter::write(const MultiSignal& signal, const MultiChannelResult& resu
 
 	std::vector<float> sampleBuffer(N);
 	std::vector<float> paramsBuffer;
-	for (size_t c=0; c<C; ++c) {
+	for (int c=0; c<C; ++c) {
 		setBE(headerSignal.channelNumber, c+1);
 		setBE(headerSignal.len, sizeof headerSignal.channelNumber + sizeof(float) * N);
 		fwrite(&headerSignal, sizeof headerSignal, 1, file);
-		for (size_t i=0; i<N; ++i) {
+		for (int i=0; i<N; ++i) {
 			setBE(sampleBuffer[i], signal.channels[c].samples[i]);
 		}
 		fwrite(sampleBuffer.data(), sizeof(float), N, file);

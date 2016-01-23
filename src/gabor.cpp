@@ -3,6 +3,7 @@
  *   Enhanced Matching Pursuit Implementation (empi)      *
  * See README.md and LICENCE for details.                 *
  **********************************************************/
+#include <algorithm>
 #include "gabor.hpp"
 
 /**
@@ -53,37 +54,38 @@ double GaborProductEstimator::estimate(double t1, double t2) const {
 
 //------------------------------------------------------------------------------
 
-GaborWorkspaceMap::GaborWorkspaceMap(double s, size_t fCount, size_t tCount, double freqSampling, double tMax)
+GaborWorkspaceMap::GaborWorkspaceMap(double s, int fCount, int tCount, double freqSampling, double tMax)
 :	TimeFreqMap<complex>(fCount, tCount),
 	Nfft((fCount-1)*2), freqSampling(freqSampling),
 	input(Nfft), output(fCount),
 	plan(Nfft, input, output, FFTW_ESTIMATE | FFTW_DESTROY_INPUT),
 	s(s), atomCount(fCount * tCount)
 {
-	for (size_t ti=0; ti<tCount; ++ti) {
+	for (int ti=0; ti<tCount; ++ti) {
 		t(ti) = ti * tMax / (tCount - 1);
 	}
-	for (size_t fi=0; fi<fCount; ++fi) {
+	for (int fi=0; fi<fCount; ++fi) {
 		f(fi) = fi * freqSampling / Nfft;
 	}
 }
 
 void GaborWorkspaceMap::compute(const SingleSignal& signal) {
-	for (size_t tIndex=0; tIndex<tCount; ++tIndex) {
+	for (int tIndex=0; tIndex<tCount; ++tIndex) {
 		compute(signal, tIndex);
 	}
 }
 
-void GaborWorkspaceMap::compute(const SingleSignal& signal, size_t tIndex) {
+void GaborWorkspaceMap::compute(const SingleSignal& signal, int tIndex) {
 	const long N = signal.samples.size();
 	const double t0 = t(tIndex);
 	const double hwGabor = 3.0 * s; // TODO
-	long iL = std::max(0L, lrint((t0 - hwGabor) * signal.freqSampling));
-	long iR = std::min(N-1, lrint((t0 + hwGabor) * signal.freqSampling));
+	// type casts are safe since we know signal length fits in int
+	int iL = static_cast<int>( std::max(0L, lrint((t0 - hwGabor) * signal.freqSampling)) );
+	int iR = static_cast<int>( std::min(N-1, lrint((t0 + hwGabor) * signal.freqSampling)) );
 	const double t0fixed = t0 - iL / signal.freqSampling;
 
 	input.zero();
-	for (long i=iL; i<=iR; ++i) {
+	for (int i=iL; i<=iR; ++i) {
 		input[i-iL] = signal.samples[i];
 	}
 	gaussize(&input, iR-iL, 1.0/signal.freqSampling, t0fixed, s);
@@ -91,7 +93,7 @@ void GaborWorkspaceMap::compute(const SingleSignal& signal, size_t tIndex) {
 
 	const double norm = 1.0 / signal.freqSampling;
 	const double mult = 2 * M_PI * t0fixed;
-	for (size_t fIndex=0; fIndex<fCount; ++fIndex) {
+	for (int fIndex=0; fIndex<fCount; ++fIndex) {
 		value(fIndex, tIndex) = norm * output[fIndex] * std::polar(1.0, f(fIndex) * mult);
 	}
 }
@@ -116,14 +118,14 @@ Atom GaborWorkspace::findBestMatch() const {
 			#ifdef _OPENMP
 			#pragma omp for
 			#endif
-			for (size_t fIndex=0; fIndex<map->fCount; ++fIndex) {
+			for (int fIndex=0; fIndex<map->fCount; ++fIndex) {
 				const double f = map->f(fIndex);
 				const bool isHighFreq = (f > 0.5 * freqNyquist);
 				// for high frequencies, one can write
 				// cos(2π(fN-Δf)(t-t₀)+φ) = (−1)^n cos(2πΔf(t-t₀)+(2πfNt₀−φ))
 				const double f4Norm = isHighFreq ? (freqNyquist - f) : f;
 				const double expFactor = exp(-2*M_PI*s*s*f4Norm*f4Norm);
-				for (size_t tIndex=0; tIndex<map->tCount; ++tIndex) {
+				for (int tIndex=0; tIndex<map->tCount; ++tIndex) {
 					complex value = map->value(fIndex, tIndex);
 					double phase = std::arg(value);
 					double phase4Norm = isHighFreq ? (2*M_PI*freqNyquist*map->t(tIndex) - phase) : phase;
@@ -175,8 +177,8 @@ void GaborWorkspace::subtractAtom(const Atom& atom, SingleSignal& signal) {
 	const double omega = 2.0 * M_PI * fA;
 	const double phase = atom.params[5];
 
-	const size_t N = signal.samples.size();
-	for (size_t i=0; i<N; ++i) {
+	const int N = signal.samples.size();
+	for (int i=0; i<N; ++i) {
 		double t = i / freqSampling - tA;
 		double t_width = t / sA;
 		signal.samples[i] -= amplitude * exp(-M_PI * t_width * t_width) * cos(omega * t + phase);
@@ -190,7 +192,7 @@ void GaborWorkspace::subtractAtom(const Atom& atom, SingleSignal& signal) {
 		GaborWorkspaceMap& map = *maps[i];
 		GaborProductEstimator estimator(sA, map.s);
 		if (estimator.part >= ORTHOGONALITY) {
-			for (size_t tIndex=0; tIndex<map.tCount; ++tIndex) {
+			for (int tIndex=0; tIndex<map.tCount; ++tIndex) {
 				if (estimator.estimate(tA, map.t(tIndex)) >= ORTHOGONALITY) {
 					map.compute(signal, tIndex);
 				}
@@ -209,7 +211,7 @@ Workspace* GaborWorkspaceBuilder::buildWorkspace(const SingleSignal& signal) con
 	double aNominPart = energyError*(2.0-energyError)*(energyError*energyError-2*energyError+2);
 	double a = (1.0 + sqrt(aNominPart)) / (aDenomSqrt * aDenomSqrt);
 
-	const long N = signal.samples.size();
+	const int N = signal.samples.size();
 	const double tMax = (N-1) / signal.freqSampling;
 
 	std::vector<std::shared_ptr<GaborWorkspaceMap>> maps;
@@ -223,9 +225,12 @@ Workspace* GaborWorkspaceBuilder::buildWorkspace(const SingleSignal& signal) con
 
 		const long Nfft = fftwRound( std::max(Ngauss, lrint(signal.freqSampling/df + 0.5)) );
 		const long tCount = lrint(tMax/dt + 0.5) + 1;
+		if (std::max(Nfft, tCount) > static_cast<long>(std::numeric_limits<int>::max())) {
+			throw Exception("signalFileIsTooLongForThisDecomposition");
+		}
 		const long fCount = Nfft / 2 + 1;
 
-		maps.push_back(std::make_shared<GaborWorkspaceMap>(s, fCount, tCount, signal.freqSampling, tMax));
+		maps.push_back(std::make_shared<GaborWorkspaceMap>(s, static_cast<int>(fCount), static_cast<int>(tCount), signal.freqSampling, tMax));
 		++count;
 	}
 

@@ -4,8 +4,10 @@
  * See README.md and LICENCE for details.                 *
  **********************************************************/
 #include <algorithm>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <limits>
 #include <map>
 #include <fstream>
 #include <string>
@@ -33,6 +35,9 @@ static std::vector<int> parseChannelSpecification(const std::string& string, int
 		} else {
 			throw Exception("invalidSelectedChannels");
 		}
+	}
+	if (static_cast<intmax_t>(numbers.size()) > static_cast<intmax_t>(std::numeric_limits<int>::max())) {
+		throw Exception("tooManySelectedChannels");
 	}
 	return numbers;
 }

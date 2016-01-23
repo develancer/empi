@@ -3,6 +3,7 @@
  *   Enhanced Matching Pursuit Implementation (empi)      *
  * See README.md and LICENCE for details.                 *
  **********************************************************/
+#include <algorithm>
 #include <cstdio>
 #include <memory>
 #include "classes.hpp"
@@ -21,7 +22,7 @@ SingleChannelResult Decomposition::compute(const DecompositionSettings& settings
 	}
 	for (int iteration=1; iteration<=settings.iterationMax; ++iteration) {
 		double progress = std::max(100.0 * (iteration-1) / settings.iterationMax, 100.0 * (1.0 - residueEnergy / totalEnergy));
-		std::cout << "ATOM" << '\t' << (iteration-1) << '\t' << atomCount << '\t' << progress << '\t' << progress << std::endl;
+		std::cout << "ATOM\t" << (iteration-1) << '\t' << atomCount << '\t' << progress << '\t' << progress << std::endl;
 		Atom best = workspace->findBestMatch();
 		result.push_back(best);
 		if (iteration == settings.iterationMax) {
@@ -42,8 +43,7 @@ MultiChannelResult SmpDecomposition::compute(const DecompositionSettings& settin
 	MultiChannelResult result;
 	int channelNumber = 0;
 	for (const auto& channel : signal.channels) {
-		std::cout << "CHANNEL" << '\t' << channelNumber++ << std::endl;
-		fflush(stdout);
+		std::cout << "CHANNEL\t" << channelNumber++ << std::endl;
 		result.push_back(Decomposition::compute(settings, builder, channel));
 	}
 	return result;

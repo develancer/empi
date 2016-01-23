@@ -18,9 +18,9 @@ class TimeFreqMap {
 	void operator=(const TimeFreqMap&); // forbidden
 
 public:	
-	const size_t fCount, tCount;
+	const int fCount, tCount;
 
-	TimeFreqMap(size_t fCount, size_t tCount)
+	TimeFreqMap(int fCount, int tCount)
 	: fCount(fCount), tCount(tCount) {
 		pointer = static_cast<T*>(calloc(fCount * tCount, sizeof(T)));
 		fValues = static_cast<double*>(calloc(fCount, sizeof(double)));
@@ -33,27 +33,27 @@ public:
 		free(tValues);
 	}
 
-	double& f(size_t fIndex) {
+	double& f(int fIndex) {
 		return fValues[fIndex];
 	}
 
-	const double& f(size_t fIndex) const {
+	const double& f(int fIndex) const {
 		return fValues[fIndex];
 	}
 
-	double& t(size_t tIndex) {
+	double& t(int tIndex) {
 		return tValues[tIndex];
 	}
 
-	const double& t(size_t tIndex) const {
+	const double& t(int tIndex) const {
 		return tValues[tIndex];
 	}
 
-	T& value(size_t fIndex, size_t tIndex) {
+	T& value(int fIndex, int tIndex) {
 		return pointer[fIndex * tCount + tIndex];
 	}
 
-	const T& value(size_t fIndex, size_t tIndex) const {
+	const T& value(int fIndex, int tIndex) const {
 		return pointer[fIndex * tCount + tIndex];
 	}
 };
