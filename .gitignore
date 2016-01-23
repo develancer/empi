@@ -1,2 +1,7 @@
-/empi
-/obj/
+CMakeCache.txt
+CMakeFiles/
+CMakeScripts/
+Makefile
+*.cmake
+empi
+empi*.exe

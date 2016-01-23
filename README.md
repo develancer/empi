@@ -3,7 +3,8 @@ empi
 
 University of Warsaw, Department of Biomedical Physics ⓒ 2015–2016  
 Enhanced Matching Pursuit Implementation (empi)  
-Author: Piotr Różański <piotr@develancer.pl>
+Author: Piotr Różański <piotr@develancer.pl>  
++ improvements of code and build process thanks to Aleks Chrabrow
 
 ## What is empi?
 
@@ -17,23 +18,73 @@ designed as a faster replacement for
 of the input/output specification with MP5, and can be used as MP decomposition
 tool in [SVAROG](https://github.com/BrainTech/svarog).
 
+The goal is an optimal decomposition of the input signal as a linear combination
+of functions from predefined set (dictionary) of Gabor atoms, including ordinary
+Gaussians as a special case for frequency = 0.
+
 ## How to get empi?
 
-### Requirements
+You can compile empi from source, or download the precompiled versions from the
+“Releases” tab. Both are available on
+[project's GitHub](https://github.com/develancer/empi). If you decide to use
+the precompiled binaries, you can skip the “Compilation” section altogether.
 
-The only external requirement is the FFTW library in version 3. Both library
+### Compilation
+
+#### Requirements
+
+To compile empi, CMake build system is required. The only external library
+requirement is the FFTW library in version 3. Both library
 and the development headers must be installed to compile empi. Under Ubuntu,
 package “libfftw3-dev” does the trick. MacOS and other Linux distributions
 may have packages of slightly different names.
 
-Also, you will need a modern C++ compiler with support for C++11 standard and
-OpenMP.
+Also, you will need a modern C++ compiler with support for C++11 standard.
+OpenMP support is recommended.
 
-### Compilation
+#### Configuration
 
-Just run “make” in the directory where you cloned your repository. If
-successful, binary file “empi” shall appear. If you would like to have it in
-your $PATH, simply copy the “empi” file to /usr/local/bin directory.
+This project uses CMake, so the proper way of compilation depends on your
+environment. Generally speaking, you can use CMake-gui to generate build files
+for your specific configuration.
+
+#### Unix-family OS
+
+The easiest way is to run
+
+	cmake .
+
+_or_, if you need to build standalone binaries
+(it will disable some platform-specific optimizations),
+
+	cmake -DSTANDALONE=1 .
+
+followed by
+
+	make
+
+in the directory where you cloned your repository; you can also do an
+out-of-source build, if you prefer. If successful, binary file “empi” shall
+appear. It can by copied to /usr/local/bin (in order to be available in $PATH)
+by calling
+
+	sudo make install
+
+#### Cross-compilation
+
+Binary versions for 32-bit or 64-bit Microsoft Windows can be cross-compiled
+under Linux. Under Ubuntu, packages _g++-mingw-w64-i686_ (for 32-bit) and
+_g++-mingw-w64-x86-64_ (for 64-bit) are needed. In different distributions,
+package names may vary. Also, shared versions of FFTW
+libraries (DLL and include files) should be already installed in each toolchain.
+To generate cross-compiled exe files, execute
+
+	cmake -DSTANDALONE=1 .
+	make empi-win32.exe empi-win64.exe
+
+To use generated binaries under MS Windows, the dynamic version of FFTW library
+(DLL file) has to be placed in the same directory as the executable file.
+All the other libraries will be linked statically into the executable.
 
 ## How to use empi?
 
