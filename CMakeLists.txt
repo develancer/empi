@@ -78,23 +78,40 @@ if(UNIX)
 	)
 
 	if(STANDALONE)
-		# Cross-compiling for 32/64-bit Windows
+		# Cross-compiling
 		string(REPLACE " " ";" CROSS_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_RELEASE}")
 		set(CROSS_CXX_FLAGS --std=c++11 ${CROSS_CXX_FLAGS} -I${CMAKE_CURRENT_SOURCE_DIR}/inc)
-		set(CROSS_LD_FLAGS -static -Wl,-Bdynamic -lfftw3 -Wl,-Bstatic)
+		set(WIN_LD_FLAGS -static -Wl,-Bdynamic -lfftw3 -Wl,-Bstatic)
+		set(OSX_LD_FLAGS -lfftw3)
+		set(LIN_LD_FLAGS -static -lfftw3)
 
+		add_custom_target(empi-lin32)
+		add_custom_command(
+			COMMENT "Cross-compiling static version for 32-bit Linux"
+			COMMAND ${CMAKE_CXX_COMPILER} -m32 ${CROSS_CXX_FLAGS} -o empi-lin32 ${EMPI_SOURCES} ${LIN_LD_FLAGS}
+			TARGET  empi-lin32
+		)
+		add_custom_target(empi-osx64)
+		add_custom_command(
+			COMMENT "Cross-compiling version for 64-bit OS X"
+			COMMAND x86_64-apple-darwin15-clang++-libc++ ${CROSS_CXX_FLAGS} -o empi-osx64 ${EMPI_SOURCES} ${OSX_LD_FLAGS}
+			TARGET  empi-osx64
+		)
 		add_custom_target(empi-win32.exe)
 		add_custom_command(
 			COMMENT "Cross-compiling static version for 32-bit Windows"
-			COMMAND i686-w64-mingw32-g++ ${CROSS_CXX_FLAGS} -o empi-win32.exe ${EMPI_SOURCES} ${CROSS_LD_FLAGS}
+			COMMAND i686-w64-mingw32-g++ ${CROSS_CXX_FLAGS} -o empi-win32.exe ${EMPI_SOURCES} ${WIN_LD_FLAGS}
 			TARGET  empi-win32.exe
 		)
 		add_custom_target(empi-win64.exe)
 		add_custom_command(
 			COMMENT "Cross-compiling static version for 64-bit Windows"
-			COMMAND x86_64-w64-mingw32-g++ ${CROSS_CXX_FLAGS} -o empi-win64.exe ${EMPI_SOURCES} ${CROSS_LD_FLAGS}
+			COMMAND x86_64-w64-mingw32-g++ ${CROSS_CXX_FLAGS} -o empi-win64.exe ${EMPI_SOURCES} ${WIN_LD_FLAGS}
 			TARGET  empi-win64.exe
 		)
-		set_directory_properties(PROPERTIES ADDITIONAL_MAKE_CLEAN_FILES "empi-win32.exe;empi-win64.exe")
+
+		add_custom_target(cross)
+		add_dependencies(cross empi-lin32 empi-osx64 empi-win32.exe empi-win64.exe)
+		set_directory_properties(PROPERTIES ADDITIONAL_MAKE_CLEAN_FILES "empi-win32.exe;empi-win64.exe;empi-osx64")
 	endif()
 endif()
