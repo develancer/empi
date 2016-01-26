@@ -32,6 +32,10 @@ However, since the purpose of the provided binaries is to be as compatible as
 possible, they may not take full advantage of your specific architecture. To
 achieve maximal performance, compiling empi from source is recommended.
 
+Additionally, precompiled binaries for OS X need an OpenMP runtime library.
+It can be downloaded from [LLVM Download Page](http://llvm.org/releases/download.html)
+and need to be put into system library directory (e.g. /usr/lib).
+
 ### Compilation
 
 #### Requirements
@@ -210,34 +214,13 @@ the toolchain library directory.
 
 Also, in order to benefit from parallel computation, OpenMP library is needed.
 The dynamic (runtime) version of the library can be downloaded from
-[LLVM download page](http://llvm.org/releases/download.html). However, the
-runtime would be needed, well... at runtime, if the OpenMP library is not linked
-statically. It would work, however.
-
-Instead, it is possible to compile OpenMP using the osxcross toolchain. The
-cmake build system of the OpenMP library needs to be passed the compiler
-binaries and build type:
-
-	cmake -DCMAKE_SYSTEM_NAME=Darwin \
-	-DCMAKE_SYSTEM_PROCESSOR=x86_64-apple \
-	-DCMAKE_C_COMPILER=x86_64-apple-darwin15-clang \
-	-DCMAKE_CXX_COMPILER=x86_64-apple-darwin15-clang++ \
-	-DCMAKE_LINKER=x86_64-apple-darwin15-ld .
-	make
-
-Even if the compilation is successful, only the dynamic version of the library
-will be generated. To generate the static OpenMP library, invoke
-
-	x86_64-apple-darwin15-ar r libomp.a `find -name '*.o'`
-
-and place the resulting file (libomp.a) in the toolchain library directory.
+[LLVM download page](http://llvm.org/releases/download.html). The library
+and headers should be installed in the toolchain directories.
 Having it all set, return to the empi directory, run
 
 	make empi-osx64
 
-and that's it, finally. Only the FFTW and OpenMP libraries will be linked
-statically, as
-[Apple Q&A discourages static linking with system libraries](https://developer.apple.com/library/mac/qa/qa1118/_index.html).
+and that's it, finally.
 
 ### Microsoft Windows
 
