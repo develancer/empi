@@ -213,15 +213,11 @@ the compiler binaries, e.g. (some of the below may not be necessary)
 The static version of compiled FFTW library (libfftw3.a) has to be placed in
 the toolchain library directory.
 
-Also, in order to benefit from parallel computation, OpenMP library is needed.
-The dynamic (runtime) version of the library can be downloaded from
-[LLVM download page](http://llvm.org/releases/download.html). The library
-and headers should be installed in the toolchain directories.
 Having it all set, return to the empi directory, run
 
 	make empi-osx64
 
-and that's it, finally.
+and that's it, finally. The cross-compiled version will _not_ use OpenMP.
 
 ### Microsoft Windows
 
