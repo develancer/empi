@@ -47,8 +47,9 @@ may have packages of slightly different names. Under Windows, follow the
 FFTW installation instructions.
 
 Also, you will need a modern C++ compiler with support for C++11 standard.
-OpenMP support is recommended. Under OS X, OpenMP runtime must be downloaded
-(available at [LLVM Download Page](http://llvm.org/releases/download.html)
+OpenMP support is recommended. Under OS X, OpenMP runtime
+(available at [LLVM Download Page](http://llvm.org/releases/download.html))
+should be downloaded
 and put into system library directory (e.g. /usr/lib) prior to compiling.
 
 #### Configuration
@@ -172,9 +173,8 @@ empi (file “LICENCE”); if not, write to the Free Software Foundation, Inc.,
 ## Appendix. Cross-compiling empi
 
 This section is dedicated to the steps needed to cross-compile empi for a
-different operating system and/or architecture on 64-bit (specifically
-Ubuntu 15.10) Linux. To enable cross-compilation capabilities, empi build system
-must be configured with parameter `STANDALONE=1`.
+different operating system and/or architecture on 64-bit Linux
+(specifically Ubuntu 15.10).
 
 ### 32-bit Linux
 
