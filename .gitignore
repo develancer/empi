@@ -3,5 +3,4 @@ CMakeFiles/
 CMakeScripts/
 Makefile
 *.cmake
-empi
-empi*.exe
+empi*

@@ -32,9 +32,8 @@ However, since the purpose of the provided binaries is to be as compatible as
 possible, they may not take full advantage of your specific architecture. To
 achieve maximal performance, compiling empi from source is recommended.
 
-Additionally, precompiled binaries for OS X need an OpenMP runtime library.
-It can be downloaded from [LLVM Download Page](http://llvm.org/releases/download.html)
-and need to be put into system library directory (e.g. /usr/lib).
+Additionally, precompiled binaries for OS X does not support OpenMP (therefore,
+they run a single thread). To use OpenMP on OS X, compilation is necessary.
 
 ### Compilation
 
@@ -48,7 +47,9 @@ may have packages of slightly different names. Under Windows, follow the
 FFTW installation instructions.
 
 Also, you will need a modern C++ compiler with support for C++11 standard.
-OpenMP support is recommended.
+OpenMP support is recommended. Under OS X, OpenMP runtime must be downloaded
+(available at [LLVM Download Page](http://llvm.org/releases/download.html)
+and put into system library directory (e.g. /usr/lib) prior to compiling.
 
 #### Configuration
 
