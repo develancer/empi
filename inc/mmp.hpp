@@ -9,18 +9,25 @@
 #include "classes.hpp"
 
 class Mmp1Decomposition : public Decomposition {
+	static void constraint(std::vector<complex>& values);
+
 public:
-	MultiChannelResult compute(const DecompositionSettings& settings, const WorkspaceBuilder& builder, const MultiSignal& signal);
+	Mmp1Decomposition(void) : Decomposition(&constraint)
+	{ }
 };
 
 class Mmp2Decomposition : public Decomposition {
 public:
+	Mmp2Decomposition(void) : Decomposition(nullptr)
+	{ }
+
 	MultiChannelResult compute(const DecompositionSettings& settings, const WorkspaceBuilder& builder, const MultiSignal& signal);
 };
 
 class Mmp3Decomposition : public Decomposition {
 public:
-	MultiChannelResult compute(const DecompositionSettings& settings, const WorkspaceBuilder& builder, const MultiSignal& signal);
+	Mmp3Decomposition(void) : Decomposition(nullptr)
+	{ }
 };
 
 #endif	/* EMPI_MMP_HPP */

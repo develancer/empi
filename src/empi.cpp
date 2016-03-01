@@ -36,6 +36,9 @@ static std::vector<int> parseChannelSpecification(const std::string& string, int
 			throw Exception("invalidSelectedChannels");
 		}
 	}
+	if (!numbers.size()) {
+		throw Exception("noChannelsSelected");
+	}
 	if (static_cast<intmax_t>(numbers.size()) > static_cast<intmax_t>(std::numeric_limits<int>::max())) {
 		throw Exception("tooManySelectedChannels");
 	}
@@ -60,20 +63,6 @@ static void empi(const char* configFilePath) {
 
 	builder.reset( new GaborWorkspaceBuilder(energyError) );
 
-	std::string typeOfMP = legacyConfiguration.at("MP");
-	std::transform(typeOfMP.begin(), typeOfMP.end(), typeOfMP.begin(), tolower);
-	if (typeOfMP == "smp") {
-		decomposition.reset( new SmpDecomposition );
-//	} else if (typeOfMP == "mmp1") {
-//		decomposition.reset( new Mmp1Decomposition );
-//	} else if (typeOfMP == "mmp2") {
-//		decomposition.reset( new Mmp2Decomposition );
-//	} else if (typeOfMP == "mmp3") {
-//		decomposition.reset( new Mmp3Decomposition );
-	} else {
-		throw Exception("unsupportedDecompositionType");
-	}
-
 	settings.iterationMax = atoi(legacyConfiguration.at("maximalNumberOfIterations").c_str());
 	if (settings.iterationMax <= 0) {
 		throw Exception("invalidMaximalNumberOfIterations");
@@ -93,6 +82,20 @@ static void empi(const char* configFilePath) {
 		throw Exception("invalidNumberOfChannels");
 	}
 	reader.selectedChannels = parseChannelSpecification(legacyConfiguration.at("selectedChannels"), reader.channelCount);
+
+	std::string typeOfMP = legacyConfiguration.at("MP");
+	std::transform(typeOfMP.begin(), typeOfMP.end(), typeOfMP.begin(), tolower);
+	if (reader.selectedChannels.size() == 1 || typeOfMP == "smp") {
+		decomposition.reset( new SmpDecomposition );
+	} else if (typeOfMP == "mmp1") {
+		decomposition.reset( new Mmp1Decomposition );
+	} else if (typeOfMP == "mmp2") {
+		decomposition.reset( new Mmp2Decomposition );
+	} else if (typeOfMP == "mmp3") {
+		decomposition.reset( new Mmp3Decomposition );
+	} else {
+		throw Exception("unsupportedDecompositionType");
+	}
 
 	std::string prefix = reader.pathToSignalFile.substr(0, reader.pathToSignalFile.find_last_of('.'));
 	writer.pathToBookFile = legacyConfiguration.at("nameOfOutputDirectory")+"/"+prefix+"_"+typeOfMP+".b";

@@ -7,13 +7,26 @@
 #include <cstdio>
 #include <memory>
 #include "classes.hpp"
+#include "gabor.hpp"
 
 //------------------------------------------------------------------------------
 
-SingleChannelResult Decomposition::compute(const DecompositionSettings& settings, const WorkspaceBuilder& builder, const SingleSignal& signal) {
+void Workspace::subtractAtomFromSignal(Atom& atom, SingleSignal& signal, bool fit) {
+	switch (atom.type) {
+		case ATOM_GABOR:
+			return GaborWorkspace::subtractAtomFromSignal(atom, signal, fit);
+		default:
+			throw Exception("invalidAtomGenerated");
+	}
+}
+
+//------------------------------------------------------------------------------
+
+MultiChannelResult Decomposition::compute(const DecompositionSettings& settings, const WorkspaceBuilder& builder, const MultiSignal& signal) {
 	std::unique_ptr<Workspace> workspace( builder.buildWorkspace(signal) );
-	SingleSignal residue(signal);
-	SingleChannelResult result;
+	const int channelCount = signal.channels.size();
+	MultiSignal residue(signal);
+	MultiChannelResult result(channelCount);
 	size_t atomCount = workspace->getAtomCount();
 	const double totalEnergy = signal.computeEnergy();
 	double residueEnergy = totalEnergy;
@@ -21,14 +34,18 @@ SingleChannelResult Decomposition::compute(const DecompositionSettings& settings
 		throw Exception("signalIsEmpty");
 	}
 	for (int iteration=1; iteration<=settings.iterationMax; ++iteration) {
-		double progress = std::max(100.0 * (iteration-1) / settings.iterationMax, 100.0 * (1.0 - residueEnergy / totalEnergy));
-		std::cout << "ATOM\t" << (iteration-1) << '\t' << atomCount << '\t' << progress << '\t' << progress << std::endl;
-		Atom best = workspace->findBestMatch();
-		result.push_back(best);
+		double progress = std::max(100.0 * (iteration - 1) / settings.iterationMax, 100.0 * (1.0 - residueEnergy / totalEnergy));
+		std::cout << "ATOM\t" << (iteration - 1) << '\t' << atomCount << '\t' << progress << '\t' << progress << std::endl;
+		Atoms bestMatches = workspace->findBestMatch(constraint);
+		for (int c=0; c<channelCount; ++c) {
+			result[c].push_back(bestMatches[c]);
+		}
 		if (iteration == settings.iterationMax) {
 			break;
 		}
-		workspace->subtractAtom(best, residue);
+		for (int c=0; c<channelCount; ++c) {
+			workspace->subtractAtom(bestMatches[c], residue.channels[c], c);
+		}
 		residueEnergy = residue.computeEnergy();
 		if (residueEnergy / totalEnergy <= settings.residualEnergy) {
 			break;
@@ -43,8 +60,10 @@ MultiChannelResult SmpDecomposition::compute(const DecompositionSettings& settin
 	MultiChannelResult result;
 	int channelNumber = 0;
 	for (const auto& channel : signal.channels) {
+		MultiSignal wrapper;
+		wrapper.channels.push_back(channel);
 		std::cout << "CHANNEL\t" << channelNumber++ << std::endl;
-		result.push_back(Decomposition::compute(settings, builder, channel));
+		result.push_back(Decomposition::compute(settings, builder, wrapper)[0]);
 	}
 	return result;
 }

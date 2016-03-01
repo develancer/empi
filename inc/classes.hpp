@@ -18,11 +18,11 @@ class TimeFreqMap {
 	void operator=(const TimeFreqMap&); // forbidden
 
 public:	
-	const int fCount, tCount;
+	const int cCount, fCount, tCount;
 
-	TimeFreqMap(int fCount, int tCount)
-	: fCount(fCount), tCount(tCount) {
-		pointer = static_cast<T*>(calloc(fCount * tCount, sizeof(T)));
+	TimeFreqMap(int cCount, int fCount, int tCount)
+	: cCount(cCount), fCount(fCount), tCount(tCount) {
+		pointer = static_cast<T*>(calloc(fCount * tCount * cCount, sizeof(T)));
 		fValues = static_cast<double*>(calloc(fCount, sizeof(double)));
 		tValues = static_cast<double*>(calloc(tCount, sizeof(double)));
 	}
@@ -49,29 +49,33 @@ public:
 		return tValues[tIndex];
 	}
 
-	T& value(int fIndex, int tIndex) {
-		return pointer[fIndex * tCount + tIndex];
+	T& value(int cIndex, int fIndex, int tIndex) {
+		return pointer[(cIndex * fCount + fIndex) * tCount + tIndex];
 	}
 
-	const T& value(int fIndex, int tIndex) const {
-		return pointer[fIndex * tCount + tIndex];
+	const T& value(int cIndex, int fIndex, int tIndex) const {
+		return pointer[(cIndex * fCount + fIndex) * tCount + tIndex];
 	}
 };
 
 //------------------------------------------------------------------------------
 
+typedef void (*MultichannelConstraint)(std::vector<complex>&);
+
 class Workspace {
 public:
+	static void subtractAtomFromSignal(Atom& atom, SingleSignal& signal, bool fit);
+
 	virtual ~Workspace() =default;
-	virtual Atom findBestMatch() const =0;
+	virtual Atoms findBestMatch(MultichannelConstraint constraint = nullptr) const =0;
 	virtual size_t getAtomCount(void) const =0;
-	virtual void subtractAtom(const Atom& atom, SingleSignal& signal) =0;
+	virtual void subtractAtom(const Atom& atom, SingleSignal& signal, int channel) =0;
 };
 
 class WorkspaceBuilder {
 public:
 	virtual ~WorkspaceBuilder() =default;
-	virtual Workspace* buildWorkspace(const SingleSignal&) const =0;
+	virtual Workspace* buildWorkspace(const MultiSignal&) const =0;
 };
 
 //------------------------------------------------------------------------------
@@ -82,18 +86,23 @@ struct DecompositionSettings {
 };
 
 class Decomposition {
+	const MultichannelConstraint constraint;
+
 protected:
-	static SingleChannelResult compute(const DecompositionSettings& settings, const WorkspaceBuilder& builder, const SingleSignal& signal);
+	Decomposition(MultichannelConstraint constraint)
+	: constraint(constraint) { }
 
 public:
 	virtual ~Decomposition() =default;
-	virtual MultiChannelResult compute(const DecompositionSettings& settings, const WorkspaceBuilder& builder, const MultiSignal& signal) =0;
+	virtual MultiChannelResult compute(const DecompositionSettings& settings, const WorkspaceBuilder& builder, const MultiSignal& signal);
 };
 
 //------------------------------------------------------------------------------
 
 class SmpDecomposition : public Decomposition {
 public:
+	SmpDecomposition(void) : Decomposition(nullptr) { }
+
 	MultiChannelResult compute(const DecompositionSettings& settings, const WorkspaceBuilder& builder, const MultiSignal& signal);
 };
 

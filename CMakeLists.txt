@@ -116,5 +116,5 @@ if(UNIX)
 
 	add_custom_target(cross)
 	add_dependencies(cross empi-lin32 empi-lin64 empi-osx64 empi-win32.exe empi-win64.exe)
-	set_directory_properties(PROPERTIES ADDITIONAL_MAKE_CLEAN_FILES "empi-win32.exe;empi-win64.exe;empi-osx64")
+	set_directory_properties(PROPERTIES ADDITIONAL_MAKE_CLEAN_FILES "empi-lin32;empi-lin64;empi-osx64;empi-win32.exe;empi-win64.exe")
 endif()

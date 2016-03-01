@@ -133,7 +133,18 @@ of the signal.
 The decomposition will iterate until _maximalNumberOfIterations_ or
 _energyPercent_ will be fulfilled, whichever comes first.
 
-* _MP_ is a selected variant of Matching Pursuit. Currently, only SMP is supported.
+* _MP_ is a selected variant of Matching Pursuit. Following variants are supported:
+
+	* “SMP” decomposes every channel independently
+
+	* “MMP1” finds, in every iteration, set of atoms which differ only in amplitude,
+	optimizing sum of squares of the scalar products across channels
+
+	* “MMP2” finds, in every iteration, set of atoms which differ only in amplitude,
+	optimizing sum of the scalar products across channels (much faster than MMP1)
+
+	* “MMP3” finds, in every iteration, set of atoms which differ in amplitude
+	and/or phase, optimizing sum of squares of the scalar products across channels
 
 * _nameOfDataFile_ is a path to the binary signal file, relative to the current
 directory. The input file should consist of 32-bit float values in the byte order

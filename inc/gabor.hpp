@@ -32,26 +32,28 @@ public:
 	const double s;
 	const size_t atomCount;
 
-	GaborWorkspaceMap(double s, int fCount, int tCount, double freqSampling, double tMax);
+	GaborWorkspaceMap(double s, int fCount, int tCount, double freqSampling, double tMax, int channelCount);
 
-	void compute(const SingleSignal& signal);
+	void compute(const MultiSignal& signal);
 
-	void compute(const SingleSignal& signal, int tIndex);
+	void compute(const SingleSignal& signal, int cIndex, int tIndex);
 };
 
 class GaborWorkspace : public Workspace {
 	const double freqSampling;
-	std::vector<std::shared_ptr<GaborWorkspaceMap>> maps;
+	std::vector< std::shared_ptr<GaborWorkspaceMap> > maps;
 
 public:
-	GaborWorkspace(double freqSampling, std::vector<std::shared_ptr<GaborWorkspaceMap>>&& maps)
+	static void subtractAtomFromSignal(Atom& atom, SingleSignal& signal, bool fit);
+
+	GaborWorkspace(double freqSampling, std::vector< std::shared_ptr<GaborWorkspaceMap> >&& maps)
 	: freqSampling(freqSampling), maps(maps) { }
 
-	Atom findBestMatch() const;
+	Atoms findBestMatch(MultichannelConstraint constraint = nullptr) const;
 
 	size_t getAtomCount(void) const;
 
-	void subtractAtom(const Atom& atom, SingleSignal& signal);
+	void subtractAtom(const Atom& atom, SingleSignal& signal, int channel);
 };
 
 class GaborWorkspaceBuilder : public WorkspaceBuilder {
@@ -61,9 +63,7 @@ public:
 	GaborWorkspaceBuilder(double energyError)
 	: energyError(energyError) { }
 
-	Workspace* buildWorkspace(const SingleSignal&) const;
-
-	void writeAtom(const Atom&, FILE*) const;
+	Workspace* buildWorkspace(const MultiSignal& signal) const;
 };
 
 #endif	/* EMPI_GABOR_HPP */

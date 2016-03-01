@@ -29,13 +29,12 @@ struct Atom {
 };
 
 typedef std::complex<double> complex;
-typedef std::vector<double> Samples;
-typedef std::vector<Atom> SingleChannelResult;
-typedef std::vector<SingleChannelResult> MultiChannelResult;
+typedef std::vector<Atom> Atoms;
+typedef std::vector<Atoms> MultiChannelResult;
 
 struct SingleSignal {
 	double freqSampling;
-	Samples samples;
+	std::vector<double> samples;
 
 	double computeEnergy() const {
 		const int N = samples.size();
@@ -49,6 +48,22 @@ struct SingleSignal {
 
 struct MultiSignal {
 	std::vector<SingleSignal> channels;
+
+	double computeEnergy() const {
+		double sum = 0.0;
+		for (const SingleSignal& channel : channels) {
+			sum += channel.computeEnergy();
+		}
+		return sum;
+	}
+
+	double getFreqSampling() const {
+		return channels.empty() ? NAN : channels[0].freqSampling;
+	}
+
+	int getSampleCount() const {
+		return channels.empty() ? 0 : channels[0].samples.size();
+	}
 };
 
 class Exception : public std::runtime_error {
