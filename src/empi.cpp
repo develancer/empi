@@ -98,6 +98,7 @@ static void empi(const char* configFilePath) {
 	}
 
 	std::string prefix = reader.pathToSignalFile.substr(0, reader.pathToSignalFile.find_last_of('.'));
+	typeOfMP.resize(3);
 	writer.pathToBookFile = legacyConfiguration.at("nameOfOutputDirectory")+"/"+prefix+"_"+typeOfMP+".b";
 
 	// legacy configuration END ///////////////////////////////////////
