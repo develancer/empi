@@ -15,6 +15,10 @@ const std::string& Configuration::at(const std::string& key) {
 	return it->second;
 }
 
+bool Configuration::has(const std::string& key) const {
+	return values.count(key);
+}
+
 void Configuration::parse(const std::string& pathToFile) {
 	std::string line;
 	std::ifstream stream(pathToFile);

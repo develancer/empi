@@ -20,7 +20,7 @@ void Mmp1Decomposition::constraint(std::vector<complex>& values) {
 	}
 }
 
-MultiChannelResult Mmp2Decomposition::compute(const DecompositionSettings& settings, const WorkspaceBuilder& builder, const MultiSignal& signal) {
+MultiChannelResult Mmp2Decomposition::compute(const DecompositionSettings& settings, Workspace* workspace, const MultiSignal& signal) {
 	MultiSignal sum;
 	const int N = signal.getSampleCount();
 	const int channelCount = signal.channels.size();
@@ -31,7 +31,7 @@ MultiChannelResult Mmp2Decomposition::compute(const DecompositionSettings& setti
 		}
 	}
 
-	Atoms sumResult = Decomposition::compute(settings, builder, sum)[0];
+	Atoms sumResult = Decomposition::compute(settings, workspace, sum)[0];
 
 	MultiSignal residue(signal);
 	MultiChannelResult result(channelCount);

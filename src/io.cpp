@@ -6,7 +6,17 @@
 #include <limits>
 #include "io.hpp"
 
-MultiSignal SignalReader::read() const {
+SignalReader::SignalReader(const std::string& pathToSignalFile)
+: pathToSignalFile(pathToSignalFile) {
+	file = fopen(pathToSignalFile.c_str(), "rb");
+	if (!file) throw Exception("couldNotOpenSignalFile");
+}
+
+SignalReader::~SignalReader(void) {
+	if (file) fclose(file);
+}
+
+MultiSignal SignalReader::readEpoch(int samplesToRead) {
 	MultiSignal result;
 	std::vector<float> sample(channelCount);
 	const int C = selectedChannels.size();
@@ -14,12 +24,8 @@ MultiSignal SignalReader::read() const {
 	for (int i=0; i<C; ++i) {
 		result.channels[i].freqSampling = freqSampling;
 	}
-	FILE* file = fopen(pathToSignalFile.c_str(), "rb");
-	if (!file) {
-		throw Exception("couldNotOpenSignalFile");
-	}
 	int leftToStore = std::numeric_limits<int>::max();
-	while (fread(sample.data(), sizeof(float), channelCount, file) == static_cast<size_t>(channelCount)) {
+	while (samplesToRead-- > 0 && fread(sample.data(), sizeof(float), channelCount, file) == static_cast<size_t>(channelCount)) {
 		if (--leftToStore < 0) {
 			throw Exception("signalFileIsTooLongForThisMachine");
 		}
@@ -27,35 +33,97 @@ MultiSignal SignalReader::read() const {
 			result.channels[i].samples.push_back(sample[selectedChannels[i]-1]);
 		}
 	}
-	fclose(file);
 	return result;
 }
 
-void BookWriter::write(const MultiSignal& signal, const MultiChannelResult& result) const {
-	BookHeader headerStart;
+void SignalReader::seek(int sampleOffset) {
+	if (fseek(file, sizeof(float) * channelCount * sampleOffset, SEEK_SET)) {
+		throw Exception("signalSeekFailed");
+	}
+}
+
+SignalReaderForAllEpochs::SignalReaderForAllEpochs(const std::string& pathToSignalFile, int epochSize)
+: SignalReader(pathToSignalFile), epochSize(epochSize) { }
+
+MultiSignal SignalReaderForAllEpochs::read() {
+	MultiSignal result = readEpoch(epochSize);
+	int sampleCount = result.channels[0].samples.size();
+	if (sampleCount > 0 && sampleCount != epochSize) {
+		throw Exception("fileIsTruncated");
+	}
+	return result;
+}
+
+SignalReaderForSelectedEpochs::SignalReaderForSelectedEpochs(const std::string& pathToSignalFile, int epochSize, const std::vector<int>& epochs)
+: SignalReaderForAllEpochs(pathToSignalFile, epochSize) {
+	for (int epoch : epochs) {
+		this->epochs.push(epoch);
+	}
+}
+
+MultiSignal SignalReaderForSelectedEpochs::read() {
+	if (epochs.empty()) {
+		return readEpoch(0);
+	} else {
+		int epoch = epochs.front();
+		epochs.pop();
+		seek(epochSize * (epoch-1));
+		MultiSignal result = readEpoch(epochSize);
+		int sampleCount = result.channels[0].samples.size();
+		if (sampleCount != epochSize) {
+			throw Exception("fileIsTruncated");
+		}
+		return result;
+	}
+}
+
+SignalReaderForWholeSignal::SignalReaderForWholeSignal(const std::string& pathToSignalFile)
+: SignalReader(pathToSignalFile) { }
+
+MultiSignal SignalReaderForWholeSignal::read() {
+	return readEpoch(std::numeric_limits<int>::max());
+}
+
+BookWriter::BookWriter(const std::string& pathToBookFile)
+: pathToBookFile(pathToBookFile) {
+	file = fopen(pathToBookFile.c_str(), "wb");
+	if (!file) throw Exception("couldNotCreateOutputFile");
+}
+
+BookWriter::~BookWriter(void) {
+	close();
+}
+
+void BookWriter::close(void) {
+	if (file) {
+		fclose(file);
+		file = nullptr;
+	}
+}
+
+void BookWriter::write(int epochNumber, const MultiSignal& signal, const MultiChannelResult& result) const {
 	BookDataHeader headerData;
 	BookDataSignalHeader headerSignal;
 	BookDataAtomsHeader headerAtoms;
 	BookDataAtomHeader headerAtom;
 
-	FILE* file = fopen(pathToBookFile.c_str(), "wb");
-	if (!file) {
-		throw Exception("couldNotCreateOutputFile");
-	}
-
 	const int C = signal.channels.size();
 	const int N = C ? signal.channels.front().samples.size() : 0;
 
-	setBE(headerStart.channelCount, C);
-	setBE(headerStart.dictionarySize, 0);
-	setBE(headerStart.energyPercent, 100.0);
-	setBE(headerStart.iterationCount, 1);
-	setBE(headerStart.pointsPerMicrovolt, 1.0);
-	setBE(headerStart.freqSampling, C ? signal.channels.front().freqSampling : 0.0);
-	fwrite(&headerStart, sizeof headerStart, 1, file);
+	if (epochNumber == 1) {
+		BookHeader headerStart;
+		// TODO meaningful information
+		setBE(headerStart.channelCount, C);
+		setBE(headerStart.dictionarySize, 0);
+		setBE(headerStart.energyPercent, 100.0);
+		setBE(headerStart.iterationCount, 1);
+		setBE(headerStart.pointsPerMicrovolt, 1.0);
+		setBE(headerStart.freqSampling, C ? signal.channels.front().freqSampling : 0.0);
+		fwrite(&headerStart, sizeof headerStart, 1, file);
+	}
 
 	long headerDataPosition = ftell(file);
-	setBE(headerData.epochNumber, 1);
+	setBE(headerData.epochNumber, epochNumber);
 	setBE(headerData.sampleCount, N);
 	fwrite(&headerData, sizeof headerData, 1, file);
 
@@ -97,6 +165,4 @@ void BookWriter::write(const MultiSignal& signal, const MultiChannelResult& resu
 	setBE(headerData.len, currentPosition - headerDataPosition - 5);
 	fwrite(&headerData, sizeof headerData, 1, file);
 	fseek(file, currentPosition, SEEK_SET);
-
-	fclose(file);
 }

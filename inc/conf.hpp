@@ -14,6 +14,7 @@ class Configuration {
 
 public:
 	void parse(const std::string& pathToFile);
+	bool has(const std::string& key) const;
 	const std::string& at(const std::string& key);
 };
 

@@ -21,7 +21,7 @@ public:
 	Mmp2Decomposition(void) : Decomposition(nullptr)
 	{ }
 
-	MultiChannelResult compute(const DecompositionSettings& settings, const WorkspaceBuilder& builder, const MultiSignal& signal);
+	MultiChannelResult compute(const DecompositionSettings& settings, Workspace* workspace, const MultiSignal& signal);
 };
 
 class Mmp3Decomposition : public Decomposition {

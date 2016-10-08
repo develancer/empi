@@ -49,6 +49,8 @@ public:
 	GaborWorkspace(double freqSampling, std::vector< std::shared_ptr<GaborWorkspaceMap> >&& maps)
 	: freqSampling(freqSampling), maps(maps) { }
 
+	void compute(const MultiSignal& signal);
+
 	Atoms findBestMatch(MultichannelConstraint constraint = nullptr) const;
 
 	size_t getAtomCount(void) const;
@@ -63,7 +65,7 @@ public:
 	GaborWorkspaceBuilder(double energyError)
 	: energyError(energyError) { }
 
-	Workspace* buildWorkspace(const MultiSignal& signal) const;
+	Workspace* prepareWorkspace(double freqSampling, int channelCount, int sampleCount) const;
 };
 
 #endif	/* EMPI_GABOR_HPP */

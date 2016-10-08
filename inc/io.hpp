@@ -7,6 +7,7 @@
 #define	EMPI_IO_HPP
 
 #include <cstdint>
+#include <queue>
 #include <vector>
 
 #include "base.hpp"
@@ -100,19 +101,68 @@ struct BookDataAtomHeader {
 
 //------------------------------------------------------------------------------
 
-struct SignalReader {
-	std::string pathToSignalFile;
+class SignalReader {
+	FILE* file;
+
+protected:
+	MultiSignal readEpoch(int samplesToRead);
+
+	void seek(int sampleOffset);
+
+public:
+	const std::string pathToSignalFile;
 	int channelCount;
 	double freqSampling;
 	std::vector<int> selectedChannels;
 
-	MultiSignal read() const;
+	SignalReader(const std::string& pathToSignalFile);
+
+	~SignalReader(void);
+
+	virtual MultiSignal read(void) =0;
 };
 
-struct BookWriter {
-	std::string pathToBookFile;
+class SignalReaderForAllEpochs : public SignalReader {
+protected:
+	const int epochSize;
 
-	void write(const MultiSignal& signal, const MultiChannelResult& result) const;
+public:
+	SignalReaderForAllEpochs(const std::string& pathToSignalFile, int epochSize);
+
+	MultiSignal read(void);
+};
+
+class SignalReaderForSelectedEpochs : public SignalReaderForAllEpochs {
+	std::queue<int> epochs;
+
+public:
+	SignalReaderForSelectedEpochs(const std::string& pathToSignalFile, int epochSize, const std::vector<int>& epochs);
+
+	MultiSignal read(void);
+};
+
+class SignalReaderForWholeSignal : public SignalReader {
+public:
+	SignalReaderForWholeSignal(const std::string& pathToSignalFile);
+
+	MultiSignal read(void);
+};
+
+//------------------------------------------------------------------------------
+
+class BookWriter {
+	FILE* file;
+
+public:
+	const std::string pathToBookFile;
+
+	BookWriter(const std::string& pathToBookFile);
+
+	~BookWriter(void);
+
+	void close(void);
+
+	void write(int epochNumber, const MultiSignal& signal, const MultiChannelResult& result) const;
 };
 
 #endif	/* EMPI_IO_HPP */

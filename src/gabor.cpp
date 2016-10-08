@@ -102,6 +102,16 @@ void GaborWorkspaceMap::compute(const SingleSignal& signal, int cIndex, int tInd
 
 //------------------------------------------------------------------------------
 
+void GaborWorkspace::compute(const MultiSignal& signal) {
+	const int count = static_cast<int>(maps.size());
+	#ifdef _OPENMP
+	#pragma omp parallel for schedule(dynamic,1)
+	#endif
+	for (int i=0; i<count; ++i) {
+		maps[i]->compute(signal);
+	}
+}
+
 Atoms GaborWorkspace::findBestMatch(MultichannelConstraint constraint) const {
 	const double freqNyquist = 0.5 * freqSampling;
 	double squareTotal = 0;
@@ -254,18 +264,15 @@ void GaborWorkspace::subtractAtom(const Atom& atom, SingleSignal& signal, int ch
 
 //------------------------------------------------------------------------------
 
-Workspace* GaborWorkspaceBuilder::buildWorkspace(const MultiSignal& signal) const {
-	const double freqSampling = signal.getFreqSampling();
-	const int N = signal.getSampleCount();
-
+Workspace* GaborWorkspaceBuilder::prepareWorkspace(double freqSampling, int channelCount, int sampleCount) const {
 	double scaleMin = MIN_SCALE_IN_SAMPLES / freqSampling;
-	double scaleMax = N / freqSampling;
+	double scaleMax = sampleCount / freqSampling;
 	double root = sqrt(-2.0/M_PI * log(1.0-energyError));
 	double aDenomSqrt = 1.0 - energyError;
 	double aNominPart = energyError*(2.0-energyError)*(energyError*energyError-2*energyError+2);
 	double a = (1.0 + sqrt(aNominPart)) / (aDenomSqrt * aDenomSqrt);
 
-	const double tMax = (N-1) / freqSampling;
+	const double tMax = (sampleCount-1) / freqSampling;
 
 	std::vector<std::shared_ptr<GaborWorkspaceMap>> maps;
 	int count = 0;
@@ -283,15 +290,8 @@ Workspace* GaborWorkspaceBuilder::buildWorkspace(const MultiSignal& signal) cons
 		}
 		const long fCount = Nfft / 2 + 1;
 
-		maps.push_back(std::make_shared<GaborWorkspaceMap>(s, static_cast<int>(fCount), static_cast<int>(tCount), freqSampling, tMax, signal.channels.size()));
+		maps.push_back(std::make_shared<GaborWorkspaceMap>(s, static_cast<int>(fCount), static_cast<int>(tCount), freqSampling, tMax, channelCount));
 		++count;
-	}
-
-	#ifdef _OPENMP
-	#pragma omp parallel for schedule(dynamic,1)
-	#endif
-	for (int i=0; i<count; ++i) {
-		maps[i]->compute(signal);
 	}
 	return new GaborWorkspace(freqSampling, std::move(maps));
 }

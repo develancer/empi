@@ -22,8 +22,8 @@ void Workspace::subtractAtomFromSignal(Atom& atom, SingleSignal& signal, bool fi
 
 //------------------------------------------------------------------------------
 
-MultiChannelResult Decomposition::compute(const DecompositionSettings& settings, const WorkspaceBuilder& builder, const MultiSignal& signal) {
-	std::unique_ptr<Workspace> workspace( builder.buildWorkspace(signal) );
+MultiChannelResult Decomposition::compute(const DecompositionSettings& settings, Workspace* workspace, const MultiSignal& signal) {
+	workspace->compute(signal);
 	const int channelCount = signal.channels.size();
 	MultiSignal residue(signal);
 	MultiChannelResult result(channelCount);
@@ -56,14 +56,14 @@ MultiChannelResult Decomposition::compute(const DecompositionSettings& settings,
 
 //------------------------------------------------------------------------------
 
-MultiChannelResult SmpDecomposition::compute(const DecompositionSettings& settings, const WorkspaceBuilder& builder, const MultiSignal& signal) {
+MultiChannelResult SmpDecomposition::compute(const DecompositionSettings& settings, Workspace* workspace, const MultiSignal& signal) {
 	MultiChannelResult result;
 	int channelNumber = 0;
 	for (const auto& channel : signal.channels) {
 		MultiSignal wrapper;
 		wrapper.channels.push_back(channel);
 		std::cout << "CHANNEL\t" << channelNumber++ << std::endl;
-		result.push_back(Decomposition::compute(settings, builder, wrapper)[0]);
+		result.push_back(Decomposition::compute(settings, workspace, wrapper)[0]);
 	}
 	return result;
 }

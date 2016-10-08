@@ -116,6 +116,9 @@ Let us start with a sample configuration file:
 	numberOfChannels 3
 	selectedChannels 1-3
 
+	numberOfSamplesInEpoch 1280
+	selectedEpochs 1-2
+
 Most parameters are straightforward, but we shall describe them one by one:
 
 * _energyError_ is the ε² parameter in optimal Gabor dictionary construction.
@@ -166,6 +169,17 @@ hertz.
 * _selectedChannels_ specify which channels should be read from the signal and
 decomposed. These can be specified as a single channel `1`, as an interval `1-5`,
 as a list `3,4` or mixed: `1-2,5,8-10`.
+
+* _numberOfSamplesInEpoch_ specifies the size of each signal segment (in samples);
+segments will be processed in order, and their decomposition will be written
+to the same output file. This parameter is optional; if not given, the entire
+signal will be processed as a single segment.
+
+* _selectedEpochs_ is only valid with _numberOfSamplesInEpoch_ and it specifies
+a list of epoch numbers (starting from 1) to be processed. These can be passed
+as a single epoch `1`, as an interval `1-100`, as a list `1,2,3` or mixed:
+`1-100,201-300,400`. This parameter is optional; if not given, then all epochs
+(the entire signal) will be processed.
 
 ## Disclaimer
 

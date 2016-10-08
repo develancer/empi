@@ -67,6 +67,7 @@ public:
 	static void subtractAtomFromSignal(Atom& atom, SingleSignal& signal, bool fit);
 
 	virtual ~Workspace() =default;
+	virtual void compute(const MultiSignal& signal) =0;
 	virtual Atoms findBestMatch(MultichannelConstraint constraint = nullptr) const =0;
 	virtual size_t getAtomCount(void) const =0;
 	virtual void subtractAtom(const Atom& atom, SingleSignal& signal, int channel) =0;
@@ -75,7 +76,7 @@ public:
 class WorkspaceBuilder {
 public:
 	virtual ~WorkspaceBuilder() =default;
-	virtual Workspace* buildWorkspace(const MultiSignal&) const =0;
+	virtual Workspace* prepareWorkspace(double freqSampling, int channelCount, int sampleCount) const =0;
 };
 
 //------------------------------------------------------------------------------
@@ -94,7 +95,7 @@ protected:
 
 public:
 	virtual ~Decomposition() =default;
-	virtual MultiChannelResult compute(const DecompositionSettings& settings, const WorkspaceBuilder& builder, const MultiSignal& signal);
+	virtual MultiChannelResult compute(const DecompositionSettings& settings, Workspace* workspace, const MultiSignal& signal);
 };
 
 //------------------------------------------------------------------------------
@@ -103,7 +104,7 @@ class SmpDecomposition : public Decomposition {
 public:
 	SmpDecomposition(void) : Decomposition(nullptr) { }
 
-	MultiChannelResult compute(const DecompositionSettings& settings, const WorkspaceBuilder& builder, const MultiSignal& signal);
+	MultiChannelResult compute(const DecompositionSettings& settings, Workspace* workspace, const MultiSignal& signal);
 };
 
 #endif /* EMPI_CLASSES_HPP */
