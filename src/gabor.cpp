@@ -9,7 +9,7 @@
 /**
  * Minimum scale parameter for Gabor atoms, in number of samples.
  */
-const int MIN_SCALE_IN_SAMPLES = 50;
+const double MIN_SCALE_IN_SAMPLES = 2.0;
 
 /**
  * If the scalar product between two normalized Gabor atoms is smaller
@@ -90,7 +90,7 @@ void GaborWorkspaceMap::compute(const SingleSignal& signal, int cIndex, int tInd
 	for (int i=iL; i<=iR; ++i) {
 		input[i-iL] = signal.samples[i];
 	}
-	gaussize(&input, iR-iL, 1.0/signal.freqSampling, t0fixed, s, true);
+	gaussize(&input, iR-iL+1, 1.0/signal.freqSampling, t0fixed, s, true);
 	plan.execute();
 
 	const double norm = 1.0 / signal.freqSampling;
@@ -243,7 +243,7 @@ void GaborWorkspace::subtractAtomFromSignal(Atom& atom, SingleSignal& signal, bo
 void GaborWorkspace::subtractAtom(const Atom& atom, SingleSignal& signal, int channel) {
 	const double sA = atom.params[3] / signal.freqSampling;
 	const double tA = atom.params[2] / signal.freqSampling;
-	GaborWorkspace::subtractAtomFromSignal(const_cast<Atom&>(atom), signal, true);
+	GaborWorkspace::subtractAtomFromSignal(const_cast<Atom&>(atom), signal, false);
 
 	const int count = maps.size();
 	#ifdef _OPENMP

@@ -20,6 +20,7 @@ class fftwArray {
 	T* pointer = nullptr;
 
 	fftwArray(const fftwArray&) =delete;
+	void operator=(const fftwArray&) =delete;
 
 public:
 	/**
