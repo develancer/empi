@@ -7,6 +7,12 @@
 #include "gabor.hpp"
 
 /**
+ * Reconstructed half-width of the Gaussian envelope,
+ * in units of scale parameter (s).
+ */
+const double GAUSS_HALF_WIDTH = 3.0;
+
+/**
  * Minimum scale parameter for Gabor atoms, in number of samples.
  */
 const double MIN_SCALE_IN_SAMPLES = 2.0;
@@ -19,8 +25,7 @@ const double ORTHOGONALITY = 1.0e-8;
 
 /**
  * Multiply given array by discretely sampled Gabor function,
- * i.e. transform x[t] := x[t] g[t], where g[t] ~ exp(−π(t-t₀)²/s²).
- * The function is L²-normalized: Σ g[t]² Δt = 1.
+ * i.e. transform x[t] := x[t] g[t], where g[t] = exp(−π(t-t₀)²/s²).
  *
  * @param buffer  array values x[0], x[Δt], x[2Δt], ...
  * @param N       length of the array
@@ -29,14 +34,13 @@ const double ORTHOGONALITY = 1.0e-8;
  * @param width   width s of Gabor function
  */
 template<typename T>
-static void gaussize(T* const __restrict buffer, const int N, double step, double center, double width, bool normalize) {
-	const double norm = normalize ? sqrt(M_SQRT2 / width) : 1.0;
+static void gaussize(T* const __restrict buffer, const int N, double step, double center, double width) {
 	const double w = sqrt(M_PI) / width;
 	const double a = w * step;
 	const double b = w * center;
 	for (int i=0; i<N; ++i) {
 		const double x_width = a * i - b;
-		buffer[i] *= norm * exp(-x_width * x_width);
+		buffer[i] *= exp(-x_width * x_width);
 	}
 }
 
@@ -80,7 +84,7 @@ void GaborWorkspaceMap::compute(const MultiSignal& signal) {
 void GaborWorkspaceMap::compute(const SingleSignal& signal, int cIndex, int tIndex) {
 	const long N = signal.samples.size();
 	const double t0 = t(tIndex);
-	const double hwGabor = 3.0 * s; // TODO
+	const double hwGabor = GAUSS_HALF_WIDTH * s;
 	// type casts are safe since we know signal length fits in int
 	int iL = static_cast<int>( std::max(0L, lrint((t0 - hwGabor) * signal.freqSampling)) );
 	int iR = static_cast<int>( std::min(N-1, lrint((t0 + hwGabor) * signal.freqSampling)) );
@@ -90,7 +94,7 @@ void GaborWorkspaceMap::compute(const SingleSignal& signal, int cIndex, int tInd
 	for (int i=iL; i<=iR; ++i) {
 		input[i-iL] = signal.samples[i];
 	}
-	gaussize(&input, iR-iL+1, 1.0/signal.freqSampling, t0fixed, s, true);
+	gaussize(&input, iR-iL+1, 1.0/signal.freqSampling, t0fixed, s);
 	plan.execute();
 
 	const double norm = 1.0 / signal.freqSampling;
@@ -119,7 +123,7 @@ Atoms GaborWorkspace::findBestMatch(MultichannelConstraint constraint) const {
 	size_t testedCount = 0;
 	for (auto map : maps) {
 		const double s = map->s;
-		const double amplFactor = 2.0 * sqrt(M_SQRT2 / s);
+		const double normComplex = sqrt(M_SQRT2 / s);
 		#ifdef _OPENMP
 		#pragma omp parallel
 		#endif
@@ -150,9 +154,9 @@ Atoms GaborWorkspace::findBestMatch(MultichannelConstraint constraint) const {
 					for (int cIndex=0; cIndex<map->cCount; ++cIndex) {
 						phases[cIndex] = std::arg(values[cIndex]);
 						double phase4Norm = isHighFreq ? (2*M_PI*freqNyquist*map->t(tIndex) - phases[cIndex]) : phases[cIndex];
-						double realFactor = 1.0 + cos(2*phase4Norm) * expFactor;
-						moduli[cIndex] = std::abs(values[cIndex]) * M_SQRT2 * sqrt(freqSampling / realFactor);
-						amplitudes[cIndex] = std::abs(values[cIndex]) * amplFactor / realFactor;
+						double normReal = M_SQRT2 * normComplex / sqrt(1.0 + cos(2*phase4Norm) * expFactor);
+						moduli[cIndex] = std::abs(values[cIndex]) * normReal * sqrt(freqSampling);
+						amplitudes[cIndex] = std::abs(values[cIndex]) * normReal * normReal;
 						square += moduli[cIndex] * moduli[cIndex];
 					}
 					if (square > squareBest) {
@@ -204,7 +208,7 @@ void GaborWorkspace::subtractAtomFromSignal(Atom& atom, SingleSignal& signal, bo
 	const double phase = atom.params[5];
 
 	const long N = signal.samples.size();
-	const double hwGabor = 3.0 * sA; // TODO
+	const double hwGabor = GAUSS_HALF_WIDTH * sA;
 	// type casts are safe since we know signal length fits in int
 	int iL = static_cast<int>( std::max(0L, lrint((tA - hwGabor) * signal.freqSampling)) );
 	int iR = static_cast<int>( std::min(N-1, lrint((tA + hwGabor) * signal.freqSampling)) );
@@ -214,7 +218,7 @@ void GaborWorkspace::subtractAtomFromSignal(Atom& atom, SingleSignal& signal, bo
 		double t = (i+iL) / signal.freqSampling - tA;
 		waveform[i] = amplitude * cos(omega * t + phase);
 	}
-	gaussize(waveform.data(), Nw, 1.0/signal.freqSampling, tA-iL/signal.freqSampling, sA, false);
+	gaussize(waveform.data(), Nw, 1.0/signal.freqSampling, tA-iL/signal.freqSampling, sA);
 
 	if (fit) {
 		double norm2 = 0.0;
@@ -279,7 +283,7 @@ Workspace* GaborWorkspaceBuilder::prepareWorkspace(double freqSampling, int chan
 	for (double s=scaleMin; s<=scaleMax; s*=a) {
 		const double dt = root * s;
 		const double df = root / s;
-		const double hwGabor = 3.0 * s; // TODO
+		const double hwGabor = GAUSS_HALF_WIDTH * s;
 
 		const long Ngauss = lrint(2.0 * hwGabor * freqSampling - 0.5) + 1;
 
