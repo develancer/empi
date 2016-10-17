@@ -1,6 +1,8 @@
-CMakeCache.txt
-CMakeFiles/
-CMakeScripts/
-Makefile
-*.cmake
-empi*
+/CMakeCache.txt
+/CMakeFiles/
+/CMakeScripts/
+/Makefile
+/*.cmake
+/empi*
+/env/empi*.zip
+/nbproject/
