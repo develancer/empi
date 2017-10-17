@@ -17,7 +17,7 @@ class TimeFreqMap {
 	TimeFreqMap(const TimeFreqMap&); // forbidden
 	void operator=(const TimeFreqMap&); // forbidden
 
-public:	
+public:
 	const int cCount, fCount, tCount;
 
 	TimeFreqMap(int cCount, int fCount, int tCount)
@@ -68,7 +68,7 @@ public:
 
 	virtual ~Workspace() =default;
 	virtual void compute(const MultiSignal& signal) =0;
-	virtual Atoms findBestMatch(MultichannelConstraint constraint = nullptr) const =0;
+	virtual Atoms findBestMatch(void) const =0;
 	virtual size_t getAtomCount(void) const =0;
 	virtual void subtractAtom(const Atom& atom, SingleSignal& signal, int channel) =0;
 };
@@ -76,7 +76,7 @@ public:
 class WorkspaceBuilder {
 public:
 	virtual ~WorkspaceBuilder() =default;
-	virtual Workspace* prepareWorkspace(double freqSampling, int channelCount, int sampleCount) const =0;
+	virtual Workspace* prepareWorkspace(double freqSampling, int channelCount, int sampleCount, MultichannelConstraint constraint) const =0;
 };
 
 //------------------------------------------------------------------------------
@@ -87,13 +87,12 @@ struct DecompositionSettings {
 };
 
 class Decomposition {
-	const MultichannelConstraint constraint;
-
 protected:
 	Decomposition(MultichannelConstraint constraint)
 	: constraint(constraint) { }
 
 public:
+	const MultichannelConstraint constraint;
 	virtual ~Decomposition() =default;
 	virtual MultiChannelResult compute(const DecompositionSettings& settings, Workspace* workspace, const MultiSignal& signal);
 };

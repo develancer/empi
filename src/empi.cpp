@@ -17,6 +17,7 @@
 #include "gabor.hpp"
 #include "io.hpp"
 #include "mmp.hpp"
+#include "timer.hpp"
 
 static std::vector<int> parseIntegerSubset(const std::string& string, int max) {
 	std::string scString;
@@ -59,8 +60,12 @@ static void empi(const char* configFilePath) {
 	if (energyError <= 0.0 || energyError >= 1.0) {
 		throw Exception("invalidEnergyErrorValue");
 	}
+	double scaleMin = legacyConfiguration.has("minAtomScale")
+		? atof(legacyConfiguration.at("minAtomScale").c_str()) : 0.0;
+	double scaleMax = legacyConfiguration.has("maxAtomScale")
+		? atof(legacyConfiguration.at("maxAtomScale").c_str()) : INFINITY;
 
-	builder.reset( new GaborWorkspaceBuilder(energyError) );
+	builder.reset( new GaborWorkspaceBuilder(energyError, scaleMin, scaleMax) );
 
 	settings.iterationMax = atoi(legacyConfiguration.at("maximalNumberOfIterations").c_str());
 	if (settings.iterationMax <= 0) {
@@ -145,7 +150,9 @@ static void empi(const char* configFilePath) {
 			break;
 		}
 		if (!workspace) {
-			workspace.reset( builder->prepareWorkspace(reader->freqSampling, channelCountForBuilder, sampleCount) );
+			TIMER_START(prepareWorkspace);
+			workspace.reset( builder->prepareWorkspace(reader->freqSampling, channelCountForBuilder, sampleCount, decomposition->constraint) );
+			TIMER_STOP(prepareWorkspace);
 		}
 		std::cout << "START" << '\t' << ++epochProcessed << '\t' << channelCount << '\t' << settings.iterationMax << '\t' << 100*(1-settings.residualEnergy) << std::endl;
 		MultiChannelResult result = decomposition->compute(settings, workspace.get(), signal);
@@ -153,6 +160,8 @@ static void empi(const char* configFilePath) {
 	}
 	writer.close();
 	puts(" END");
+
+	PRINT_TIMERS;
 }
 
 static void exception(const char* message) {

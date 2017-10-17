@@ -15,7 +15,7 @@ void Mmp1Decomposition::constraint(std::vector<complex>& values) {
 //	commented version does not work, should be equivalent
 //	direction = std::polar(1.0, angle);
 	for (complex& value : values) {
-		value = std::polar(std::abs(value) * cos(std::arg(value) - angle), angle);
+		value = std::polar(std::abs(value) * std::cos(std::arg(value) - angle), angle);
 //		value = std::abs(value) * std::real(value * direction) * direction;
 	}
 }

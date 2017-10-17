@@ -8,6 +8,7 @@
 #include <memory>
 #include "classes.hpp"
 #include "gabor.hpp"
+#include "timer.hpp"
 
 //------------------------------------------------------------------------------
 
@@ -23,7 +24,10 @@ void Workspace::subtractAtomFromSignal(Atom& atom, SingleSignal& signal, bool fi
 //------------------------------------------------------------------------------
 
 MultiChannelResult Decomposition::compute(const DecompositionSettings& settings, Workspace* workspace, const MultiSignal& signal) {
+	TIMER_START(compute);
 	workspace->compute(signal);
+	TIMER_STOP(compute);
+
 	const int channelCount = signal.channels.size();
 	MultiSignal residue(signal);
 	MultiChannelResult result(channelCount);
@@ -36,16 +40,24 @@ MultiChannelResult Decomposition::compute(const DecompositionSettings& settings,
 	for (int iteration=1; iteration<=settings.iterationMax; ++iteration) {
 		double progress = std::max(100.0 * (iteration - 1) / settings.iterationMax, 100.0 * (1.0 - residueEnergy / totalEnergy));
 		std::cout << "ATOM\t" << (iteration - 1) << '\t' << atomCount << '\t' << progress << '\t' << progress << std::endl;
-		Atoms bestMatches = workspace->findBestMatch(constraint);
+
+		TIMER_START(findBestMatch);
+		Atoms bestMatches = workspace->findBestMatch();
+		TIMER_STOP(findBestMatch);
+
 		for (int c=0; c<channelCount; ++c) {
 			result[c].push_back(bestMatches[c]);
 		}
 		if (iteration == settings.iterationMax) {
 			break;
 		}
+
+		TIMER_START(subtractAtom);
 		for (int c=0; c<channelCount; ++c) {
 			workspace->subtractAtom(bestMatches[c], residue.channels[c], c);
 		}
+		TIMER_STOP(subtractAtom);
+
 		residueEnergy = residue.computeEnergy();
 		if (residueEnergy / totalEnergy <= settings.residualEnergy) {
 			break;

@@ -56,7 +56,6 @@ elseif(CMAKE_COMPILER_IS_GNUCXX)
 	# Add GCC warning level
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wpedantic")
 
-	set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O2")
 	if(NOT STANDALONE)
 		# Enable native CPU optimizations
 		set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -march=native")

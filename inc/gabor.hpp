@@ -9,35 +9,46 @@
 #include <memory>
 #include "classes.hpp"
 #include "fftw.hpp"
+#include "heap.hpp"
+
+class GaborWorkspace;
+class GaborWorkspaceBuilder;
+class GaborWorkspaceIndex;
+class GaborWorkspaceMap;
+
+struct TimeFreqValue {
+	int fIndex, tIndex;
+	double value;
+};
+
+struct TimeFreqMapValue {
+	std::shared_ptr<GaborWorkspaceMap> map;
+	int fIndex, tIndex;
+	double value;
+};
+
+struct GaborComputer {
+	const GaborWorkspaceMap* map;
+	const int fIndex;
+	const double normComplex;
+	const double freqNyquist;
+	const double f;
+	const bool isHighFreq;
+	const double f4Norm;
+	const double expFactor;
+
+	GaborComputer(const GaborWorkspaceMap* map, int fIndex);
+	double compute(int tIndex, std::vector<complex>& buffer);
+};
 
 struct GaborProductEstimator {
 	const double s12, s22, A, part;
 
 	GaborProductEstimator(double s1, double s2);
-
 	double estimate(double t1, double t2) const;
 };
 
-class GaborWorkspaceMap : public TimeFreqMap<complex> {
-	const int Nfft;
-	const double freqSampling;
-	fftwDouble input;
-	fftwComplex output;
-	fftwPlan plan;
-
-	GaborWorkspaceMap(const GaborWorkspaceMap&); // forbidden
-	void operator=(const GaborWorkspaceMap&); // forbidden
-
-public:
-	const double s;
-	const size_t atomCount;
-
-	GaborWorkspaceMap(double s, int fCount, int tCount, double freqSampling, double tMax, int channelCount);
-
-	void compute(const MultiSignal& signal);
-
-	void compute(const SingleSignal& signal, int cIndex, int tIndex);
-};
+//------------------------------------------------------------------------------
 
 class GaborWorkspace : public Workspace {
 	const double freqSampling;
@@ -47,25 +58,77 @@ public:
 	static void subtractAtomFromSignal(Atom& atom, SingleSignal& signal, bool fit);
 
 	GaborWorkspace(double freqSampling, std::vector< std::shared_ptr<GaborWorkspaceMap> >&& maps)
-	: freqSampling(freqSampling), maps(maps) { }
+	: freqSampling(freqSampling), maps(std::move(maps)) { }
 
 	void compute(const MultiSignal& signal);
 
-	Atoms findBestMatch(MultichannelConstraint constraint = nullptr) const;
+	Atoms findBestMatch(void) const;
 
 	size_t getAtomCount(void) const;
 
 	void subtractAtom(const Atom& atom, SingleSignal& signal, int channel);
 };
 
+//------------------------------------------------------------------------------
+
 class GaborWorkspaceBuilder : public WorkspaceBuilder {
-	double energyError;
+	const double energyError;
+	const double scaleMin;
+	const double scaleMax;
 
 public:
-	GaborWorkspaceBuilder(double energyError)
-	: energyError(energyError) { }
+	GaborWorkspaceBuilder(double energyError, double scaleMin, double scaleMax)
+	: energyError(energyError), scaleMin(scaleMin), scaleMax(scaleMax) { }
 
-	Workspace* prepareWorkspace(double freqSampling, int channelCount, int sampleCount) const;
+	Workspace* prepareWorkspace(double freqSampling, int channelCount, int sampleCount, MultichannelConstraint constraint) const;
 };
+
+//------------------------------------------------------------------------------
+
+class GaborWorkspaceIndex {
+
+	const GaborWorkspaceMap* const map;
+	std::vector<complex> buffer;
+	std::unique_ptr< Heap<double> > heap;
+
+	std::vector<bool> tIndexNeedUpdate;
+	bool tIndexNeedUpdateFlag;
+
+	void update(void);
+
+public:
+	GaborWorkspaceIndex(const GaborWorkspaceMap* map);
+	void mark(int tIndex);
+	TimeFreqValue max(void);
+};
+
+//------------------------------------------------------------------------------
+
+class GaborWorkspaceMap : public TimeFreqMap<complex> {
+	const int Nfft;
+	fftwDouble input;
+	fftwComplex output;
+	fftwPlan plan;
+	std::unique_ptr<GaborWorkspaceIndex> index;
+
+public:
+	const double s;
+	const double freqSampling;
+	const size_t atomCount;
+	const MultichannelConstraint constraint;
+
+	GaborWorkspaceMap(double s, int fCount, int tCount, double freqSampling, double tMax, int channelCount, MultichannelConstraint constraint);
+
+	void compute(const MultiSignal& signal);
+
+	void compute(const SingleSignal& signal, int cIndex, int tIndex);
+
+	TimeFreqValue max(void);
+
+	GaborWorkspaceMap(const GaborWorkspaceMap&) =delete;
+	void operator=(const GaborWorkspaceMap&) =delete;
+};
+
+//------------------------------------------------------------------------------
 
 #endif	/* EMPI_GABOR_HPP */
