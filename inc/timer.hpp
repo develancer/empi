@@ -22,7 +22,7 @@ public:
 };
 
 class Timer {
-	double time_;
+	double time_ = 0;
 	std::unique_ptr<SingleTimer> timer_;
 
 public:

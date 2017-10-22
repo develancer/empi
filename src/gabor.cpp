@@ -207,7 +207,10 @@ void GaborWorkspace::subtractAtomFromSignal(Atom& atom, SingleSignal& signal, bo
 void GaborWorkspace::subtractAtom(const Atom& atom, SingleSignal& signal, int channel) {
 	const double sA = atom.params[3] / signal.freqSampling;
 	const double tA = atom.params[2] / signal.freqSampling;
+
+	TIMER_START(subtractAtomFromSignal);
 	GaborWorkspace::subtractAtomFromSignal(const_cast<Atom&>(atom), signal, false);
+	TIMER_STOP(subtractAtomFromSignal);
 
 	const int count = maps.size();
 	#ifdef _OPENMP
@@ -248,13 +251,16 @@ Workspace* GaborWorkspaceBuilder::prepareWorkspace(double freqSampling, int chan
 		const long Ngauss = std::lrint(2.0 * hwGabor * freqSampling - 0.5) + 1;
 
 		const long Nfft = fftwRound( std::max(Ngauss, std::lrint(freqSampling/df + 0.5)) );
-		const long tCount = std::lrint(tMax/dt + 0.5) + 1;
+		const long tCount = std::lrint(tMax/dt - 0.5) + 1;
 		if (std::max(Nfft, tCount) > static_cast<long>(std::numeric_limits<int>::max())) {
 			throw Exception("signalFileIsTooLongForThisDecomposition");
 		}
-		const long fCount = Nfft / 2 + 1;
+		long fCount = Nfft / 2 + 1;
+		if (std::isfinite(freqMax) && freqMax > 0) {
+			fCount = std::min(fCount, std::lrint(freqMax/df - 0.5) + 1);
+		}
 
-		maps.push_back(std::make_shared<GaborWorkspaceMap>(s, static_cast<int>(fCount), static_cast<int>(tCount), freqSampling, tMax, channelCount, constraint));
+		maps.push_back(std::make_shared<GaborWorkspaceMap>(s, static_cast<int>(Nfft), static_cast<int>(fCount), static_cast<int>(tCount), freqSampling, tMax, channelCount, constraint));
 		++count;
 	}
 
@@ -263,9 +269,9 @@ Workspace* GaborWorkspaceBuilder::prepareWorkspace(double freqSampling, int chan
 
 //------------------------------------------------------------------------------
 
-GaborWorkspaceMap::GaborWorkspaceMap(double s, int fCount, int tCount, double freqSampling, double tMax, int channelCount, MultichannelConstraint constraint)
+GaborWorkspaceMap::GaborWorkspaceMap(double s, int Nfft, int fCount, int tCount, double freqSampling, double tMax, int channelCount, MultichannelConstraint constraint)
 :	TimeFreqMap<complex>(channelCount, fCount, tCount),
-	Nfft((fCount-1)*2), input(Nfft), output(fCount),
+	Nfft(Nfft), input(Nfft), output(Nfft/2+1),
 	plan(Nfft, input, output, FFTW_ESTIMATE | FFTW_DESTROY_INPUT),
 	s(s), freqSampling(freqSampling), atomCount(fCount * tCount), constraint(constraint)
 {

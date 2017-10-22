@@ -75,10 +75,11 @@ class GaborWorkspaceBuilder : public WorkspaceBuilder {
 	const double energyError;
 	const double scaleMin;
 	const double scaleMax;
+	const double freqMax;
 
 public:
-	GaborWorkspaceBuilder(double energyError, double scaleMin, double scaleMax)
-	: energyError(energyError), scaleMin(scaleMin), scaleMax(scaleMax) { }
+	GaborWorkspaceBuilder(double energyError, double scaleMin, double scaleMax, double freqMax)
+	: energyError(energyError), scaleMin(scaleMin), scaleMax(scaleMax), freqMax(freqMax) { }
 
 	Workspace* prepareWorkspace(double freqSampling, int channelCount, int sampleCount, MultichannelConstraint constraint) const;
 };
@@ -117,7 +118,7 @@ public:
 	const size_t atomCount;
 	const MultichannelConstraint constraint;
 
-	GaborWorkspaceMap(double s, int fCount, int tCount, double freqSampling, double tMax, int channelCount, MultichannelConstraint constraint);
+	GaborWorkspaceMap(double s, int Nfft, int fCount, int tCount, double freqSampling, double tMax, int channelCount, MultichannelConstraint constraint);
 
 	void compute(const MultiSignal& signal);
 

@@ -64,8 +64,10 @@ static void empi(const char* configFilePath) {
 		? atof(legacyConfiguration.at("minAtomScale").c_str()) : 0.0;
 	double scaleMax = legacyConfiguration.has("maxAtomScale")
 		? atof(legacyConfiguration.at("maxAtomScale").c_str()) : INFINITY;
+	double freqMax = legacyConfiguration.has("maxAtomFrequency")
+		? atof(legacyConfiguration.at("maxAtomFrequency").c_str()) : INFINITY;
 
-	builder.reset( new GaborWorkspaceBuilder(energyError, scaleMin, scaleMax) );
+	builder.reset( new GaborWorkspaceBuilder(energyError, scaleMin, scaleMax, freqMax) );
 
 	settings.iterationMax = atoi(legacyConfiguration.at("maximalNumberOfIterations").c_str());
 	if (settings.iterationMax <= 0) {
