@@ -1,9 +1,9 @@
 empi
 ====
 
-University of Warsaw, Department of Biomedical Physics ⓒ 2015–2016  
-Enhanced Matching Pursuit Implementation (empi)  
-Author: Piotr Różański <piotr@develancer.pl>  
+University of Warsaw, Department of Biomedical Physics ⓒ 2015–2017
+Enhanced Matching Pursuit Implementation (empi)
+Author: Piotr Różański <piotr@develancer.pl>
 & improvements of code and build process thanks to Aleks Chrabrow
 
 ## What is empi?
@@ -180,6 +180,19 @@ a list of epoch numbers (starting from 1) to be processed. These can be passed
 as a single epoch `1`, as an interval `1-100`, as a list `1,2,3` or mixed:
 `1-100,201-300,400`. This parameter is optional; if not given, then all epochs
 (the entire signal) will be processed.
+
+* _minAtomScale_ specifies the minimum scale of atoms in the MP dictionary.
+If not specified, it defaults to the scale length of 2 samples
+(scale in seconds = 2 / sampling frequency)
+
+* _maxAtomScale_ specifies the maximum scale of atoms in the MP dictionary.
+If not specified, it defaults to the length of the analysed signal.
+
+* _maxAtomFrequency_ specifies the maximum frequency (in hertz)
+of atoms in the MP dictionary.
+
+Specifying _minAtomScale_, _maxAtomScale_ and _maxAtomFrequency_ is not
+mandatory, but it allows to greatly reduce the computational time.
 
 ## Disclaimer
 
