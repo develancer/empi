@@ -1,9 +1,9 @@
 empi
 ====
 
-University of Warsaw, Department of Biomedical Physics ⓒ 2015–2017
-Enhanced Matching Pursuit Implementation (empi)
-Author: Piotr Różański <piotr@develancer.pl>
+University of Warsaw, Department of Biomedical Physics ⓒ 2015–2017  
+Enhanced Matching Pursuit Implementation (empi)  
+Author: Piotr Różański <piotr@develancer.pl>  
 & improvements of code and build process thanks to Aleks Chrabrow
 
 ## What is empi?
