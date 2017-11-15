@@ -113,12 +113,12 @@ void BookWriter::write(int epochNumber, const MultiSignal& signal, const MultiCh
 	if (epochNumber == 1) {
 		BookHeader headerStart;
 		// TODO meaningful information
-		setBE(headerStart.channelCount, C);
-		setBE(headerStart.dictionarySize, 0);
-		setBE(headerStart.energyPercent, 100.0);
-		setBE(headerStart.iterationCount, 1);
-		setBE(headerStart.pointsPerMicrovolt, 1.0);
-		setBE(headerStart.freqSampling, C ? signal.channels.front().freqSampling : 0.0);
+		setBE(headerStart.content.channelCount, C);
+		setBE(headerStart.content.dictionarySize, 0);
+		setBE(headerStart.content.energyPercent, 100.0);
+		setBE(headerStart.content.iterationCount, 1);
+		setBE(headerStart.content.pointsPerMicrovolt, 1.0);
+		setBE(headerStart.content.freqSampling, C ? signal.channels.front().freqSampling : 0.0);
 		fwrite(&headerStart, sizeof headerStart, 1, file);
 	}
 

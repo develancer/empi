@@ -51,19 +51,32 @@ void setBE(float& z, T t) {
 	setBE(*reinterpret_cast<uint32_t*>(&z), *p);
 }
 
+template<typename T>
+T getBE(T t) {
+	T z;
+	setBE(z, t);
+	return z;
+}
+
 #endif
 
 //------------------------------------------------------------------------------
 
 #pragma pack(push,1)
 
-struct BookHeader {
+struct BookHeaderStart {
 	char _version[6] = { 'M','P','v','5','.','0' };
-	uint8_t _idComment = 1;
-	uint8_t _lenComment[4] = { 0, 0, 0, sizeof _comment };
+};
+
+struct BookHeaderComment {
+	uint8_t _id = 1;
+	uint8_t _len[4] = { 0, 0, 0, sizeof _comment };
 	char _comment[4] = { 'e', 'm', 'p', 'i' };
-	uint8_t _idHeader = 2;
-	uint8_t _lenHeader[4] = { 0, 0, 0, sizeof(BookHeader)-offsetof(BookHeader, _idSignalInfo) };
+};
+
+struct BookHeaderContent {
+	uint8_t _id = 2;
+	uint8_t _len[4] = { 0, 0, 0, sizeof(BookHeaderContent)-offsetof(BookHeaderContent, _idSignalInfo) };
 	uint8_t _idSignalInfo = 5;
 	uint8_t _lenSignalInfo = 10;
 	float freqSampling;
@@ -75,6 +88,12 @@ struct BookHeader {
 	uint32_t iterationCount;
 	uint32_t dictionarySize;
 	char _dictionaryType = 'F';
+};
+
+struct BookHeader {
+	BookHeaderStart _start;
+	BookHeaderComment _comment;
+	BookHeaderContent content;
 };
 
 struct BookDataHeader {
