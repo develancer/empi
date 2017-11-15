@@ -64,6 +64,7 @@ void read(FILE* file) {
 				}
 				atom.t += (epochNumber-1) * sampleCount;
 				atom.t /= freqSampling;
+				atom.scale /= freqSampling;
 				atom.f *= freqSampling / 2;
 				printf("%2d %3d", c+1, a);
 				for (unsigned i=0; i<(sizeof atom.params)/sizeof(float); ++i) {
