@@ -1,11 +1,12 @@
 /**********************************************************
- * University of Warsaw, Department of Biomedical Physics *
+ * Piotr T. Różański (c) 2015–2018                        *
  *   Enhanced Matching Pursuit Implementation (empi)      *
  * See README.md and LICENCE for details.                 *
  **********************************************************/
 #ifndef EMPI_TIMER_HPP
 #define EMPI_TIMER_HPP
 
+#include <ctime>
 #include <map>
 #include <memory>
 

@@ -1,5 +1,5 @@
 /**********************************************************
- * University of Warsaw, Department of Biomedical Physics *
+ * Piotr T. Różański (c) 2015–2018                        *
  *   Enhanced Matching Pursuit Implementation (empi)      *
  * See README.md and LICENCE for details.                 *
  **********************************************************/

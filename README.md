@@ -1,9 +1,8 @@
 empi
 ====
 
-University of Warsaw, Department of Biomedical Physics ⓒ 2015–2017  
 Enhanced Matching Pursuit Implementation (empi)  
-Author: Piotr Różański <piotr@develancer.pl>  
+Author: Piotr Różański <piotr@develancer.pl> ⓒ 2015–2018
 & improvements of code and build process thanks to Aleks Chrabrow
 
 ## What is empi?
@@ -266,7 +265,10 @@ compiling FFTW for Windows, it is better to stick with shared versions,
 which can be obtained from
 [FFTW download page](http://www.fftw.org/install/windows.html).
 After downloading, install DLL files and include headers in each toolchain
-(i686 and/or x86-64).
+(i686 and/or x86-64), e.g.:
+
+* /usr/lib/gcc/i686-w64-mingw32/5.3-win32 for 32-bit Windows
+* /usr/lib/gcc/x86_64-w64-mingw32/5.3-win32 for 64-bit Windows
 
 To generate cross-compiled exe files, execute
 
