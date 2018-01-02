@@ -2,7 +2,7 @@ empi
 ====
 
 Enhanced Matching Pursuit Implementation (empi)  
-Author: Piotr Różański <piotr@develancer.pl> ⓒ 2015–2018
+Author: Piotr Różański <piotr@develancer.pl> ⓒ 2015–2018  
 & improvements of code and build process thanks to Aleks Chrabrow
 
 ## What is empi?
