@@ -38,8 +38,14 @@ MultiChannelResult Decomposition::compute(const DecompositionSettings& settings,
 		throw Exception("signalIsEmpty");
 	}
 	for (int iteration=1; iteration<=settings.iterationMax; ++iteration) {
-		double progress = std::max(100.0 * (iteration - 1) / settings.iterationMax, 100.0 * (1.0 - residueEnergy / totalEnergy));
-		std::cout << "ATOM\t" << (iteration - 1) << '\t' << atomCount << '\t' << progress << '\t' << progress << std::endl;
+		double energyProgress = 100.0 * (1.0 - residueEnergy / totalEnergy);
+		double totalProgress = std::max(
+			100.0 * (iteration - 1) / settings.iterationMax,
+			energyProgress
+		);
+		std::cout << "ATOM\t" << (iteration - 1) << '\t' << atomCount
+			<< '\t' << energyProgress << '\t' << totalProgress
+			<< std::endl;
 
 		TIMER_START(findBestMatch);
 		Atoms bestMatches = workspace->findBestMatch();
