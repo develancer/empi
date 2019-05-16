@@ -8,10 +8,10 @@
 #include "timer.hpp"
 
 /**
- * Reconstructed half-width of the Gaussian envelope,
+ * Reconstructed half-width of the triangular envelope,
  * in units of scale parameter (s).
  */
-const double GAUSS_HALF_WIDTH = 3.0;
+const double TRI_HALF_WIDTH = sqrt(2.5/M_PI);
 
 /**
  * Minimum scale parameter for Gabor atoms, in number of samples.
@@ -30,25 +30,31 @@ const double MIN_SCALE_IN_SAMPLES = 2.0;
  */
 template<typename T>
 static void gaussize(T* const __restrict buffer, const int N, double step, double center, double width) {
-	const double w = std::sqrt(M_PI) / width;
-	const double a = w * step;
-	const double b = w * center;
+	const double hw = sqrt(2.5/M_PI) * width;
 	for (int i=0; i<N; ++i) {
-		const double x_width = a * i - b;
-		buffer[i] *= std::exp(-x_width * x_width);
+		const double t = step * i - center;
+		buffer[i] *= std::max(0.0, 1.0 - fabs(t)/hw);
 	}
 }
 
 //------------------------------------------------------------------------------
 
+double computeExpFactor(double s, double f) {
+    if (f == 0) {
+        return 1.0;
+    }
+    double x = sqrt(40*M_PI)*f*s;
+    return 6/(x*x)*(1 - sin(x)/x);
+}
+
 GaborComputer::GaborComputer(const GaborWorkspaceMap* map, int fIndex) :
 	map(map), fIndex(fIndex),
-	normComplex(std::sqrt(M_SQRT2 / map->s)),
+	normComplex(std::sqrt(std::sqrt(0.9*M_PI) / map->s)),
 	freqNyquist(0.5 * map->freqSampling),
 	f(map->f(fIndex)),
 	isHighFreq(f > 0.5 * freqNyquist),
 	f4Norm(isHighFreq ? (freqNyquist - f) : f),
-	expFactor(std::exp(-2*M_PI*map->s*map->s*f4Norm*f4Norm))
+	expFactor(computeExpFactor(map->s, f4Norm))
 { }
 
 double GaborComputer::compute(int tIndex, std::vector<complex>& buffer) {
@@ -150,7 +156,7 @@ void GaborWorkspace::subtractAtomFromSignal(Atom& atom, SingleSignal& signal, bo
 	const double phase = atom.params[5];
 
 	const long N = signal.samples.size();
-	const double hwGabor = GAUSS_HALF_WIDTH * sA;
+	const double hwGabor = TRI_HALF_WIDTH * sA;
 	// type casts are safe since we know signal length fits in int
 	int iL = static_cast<int>( std::max(0L, std::lrint((tA - hwGabor) * signal.freqSampling)) );
 	int iR = static_cast<int>( std::min(N-1, std::lrint((tA + hwGabor) * signal.freqSampling)) );
@@ -201,7 +207,7 @@ void GaborWorkspace::subtractAtom(const Atom& atom, SingleSignal& signal, int ch
 	for (int i=0; i<count; ++i) {
 		GaborWorkspaceMap& map = *maps[i];
 		for (int tIndex=0; tIndex<map.tCount; ++tIndex) {
-			if (fabs(map.t(tIndex) - tA) <= (map.s + sA) * GAUSS_HALF_WIDTH) {
+			if (fabs(map.t(tIndex) - tA) <= (map.s + sA) * TRI_HALF_WIDTH) {
 				map.compute(signal, channel, tIndex);
 			}
 		}
@@ -230,7 +236,7 @@ Workspace* GaborWorkspaceBuilder::prepareWorkspace(double freqSampling, int chan
 		const double s = exp(lMin + i*(lMax - lMin)/(lCount - 1));
 		const double dt = root * s;
 		const double df = root / s;
-		const double hwGabor = GAUSS_HALF_WIDTH * s;
+		const double hwGabor = TRI_HALF_WIDTH * s;
 
 		const long Ngauss = 2 * std::lrint(hwGabor * freqSampling - 0.5) + 1;
 
@@ -279,7 +285,7 @@ void GaborWorkspaceMap::compute(const MultiSignal& signal) {
 void GaborWorkspaceMap::compute(const SingleSignal& signal, int cIndex, int tIndex) {
 	const long N = signal.samples.size();
 	const double t0 = t(tIndex);
-	const double hwGabor = GAUSS_HALF_WIDTH * s;
+	const double hwGabor = TRI_HALF_WIDTH * s;
 	// type casts are safe since we know signal length fits in int
 	int iL = static_cast<int>( std::max(0L, std::lrint((t0 - hwGabor) * signal.freqSampling)) );
 	int iR = static_cast<int>( std::min(N-1, std::lrint((t0 + hwGabor) * signal.freqSampling)) );
