@@ -39,13 +39,24 @@ static void gaussize(T* const __restrict buffer, const int N, double step, doubl
 
 //------------------------------------------------------------------------------
 
-double computeExpFactor(double s, double f) {
-    if (f == 0) {
-        return 1.0;
-    }
-    double x = sqrt(40*M_PI)*f*s;
-    return 6/(x*x)*(1 - sin(x)/x);
+static double I(double dl) {
+    double x = exp(-dl/2);
+    return (3 - x*x)*x/2;
 }
+
+static double J(double x) {
+    x *= sqrt(10*M_PI);
+    return 6/(x*x) * (1 - sin(x)/x);
+}
+
+static double K(double x) {
+    x = fabs(x);
+    return x*x <= 2.5/M_PI ? 1 - 0.6*M_PI*x*x + sqrt(9*M_PI*M_PI*M_PI/250)*x*x*x : (
+            x*x <= 10/M_PI ? 2*pow(1 - x*sqrt(M_PI/10), 3) : 0
+    );
+}
+
+//------------------------------------------------------------------------------
 
 GaborComputer::GaborComputer(const GaborWorkspaceMap* map, int fIndex) :
 	map(map), fIndex(fIndex),
@@ -54,7 +65,7 @@ GaborComputer::GaborComputer(const GaborWorkspaceMap* map, int fIndex) :
 	f(map->f(fIndex)),
 	isHighFreq(f > 0.5 * freqNyquist),
 	f4Norm(isHighFreq ? (freqNyquist - f) : f),
-	expFactor(computeExpFactor(map->s, f4Norm))
+	expFactor(f4Norm>0 ? J(2*f4Norm*map->s) : 1.0)
 { }
 
 double GaborComputer::compute(int tIndex, std::vector<complex>& buffer) {
@@ -216,14 +227,48 @@ void GaborWorkspace::subtractAtom(const Atom& atom, SingleSignal& signal, int ch
 
 //------------------------------------------------------------------------------
 
+static double solve(double (*F)(double), double result) {
+    double Fx = F(result);
+    double xL = result, xP = result;
+    if (Fx > result) {
+        while (Fx > result) {
+            xL = xP;
+            xP *= 2;
+            Fx = F(xP);
+        }
+    } else if (Fx < result) {
+        while (Fx < result) {
+            xP = xL;
+            xL /= 2;
+            Fx = F(xL);
+        }
+    } else {
+        return result; // lucky first guess
+    }
+
+    // szukamy pomiędzy xL a xP
+    double x = (xP + xL) / 2;
+    while (xL < x && x < xP) {
+        Fx = F(x);
+        if (Fx > result) {
+            xL = x;
+        } else if (Fx < result) {
+            xP = x;
+        } else {
+            return x;
+        }
+        x = (xP + xL) / 2;
+    }
+    return x;
+}
+
 Workspace* GaborWorkspaceBuilder::prepareWorkspace(double freqSampling, int channelCount, int sampleCount, MultichannelConstraint constraint) const {
 	double scaleMin = std::max(this->scaleMin, MIN_SCALE_IN_SAMPLES / freqSampling);
 	double scaleMax = std::min(this->scaleMax, sampleCount / freqSampling);
-	double root = std::sqrt(-2.0/M_PI * std::log(1.0-energyError));
-	double aDenomSqrt = 1.0 - energyError;
-	double aNominPart = energyError*(2.0-energyError)*(energyError*energyError-2*energyError+2);
-	double a = (1.0 + std::sqrt(aNominPart)) / (aDenomSqrt * aDenomSqrt);
-	double dl = log(a);
+
+	double dl = solve(I, 1.0 - energyError);
+	double dfs = solve(J, 1.0 - energyError);
+	double dt_s = solve(K, 1.0 - energyError);
 
 	const double tMax = (sampleCount-1) / freqSampling;
 	const double lMin = log(scaleMin);
@@ -234,8 +279,8 @@ Workspace* GaborWorkspaceBuilder::prepareWorkspace(double freqSampling, int chan
 	int count = 0;
 	for (int i=0; i<lCount; ++i) {
 		const double s = exp(lMin + i*(lMax - lMin)/(lCount - 1));
-		const double dt = root * s;
-		const double df = root / s;
+		const double dt = dt_s * s;
+		const double df = dfs / s;
 		const double hwGabor = TRI_HALF_WIDTH * s;
 
 		const long Ngauss = 2 * std::lrint(hwGabor * freqSampling - 0.5) + 1;
