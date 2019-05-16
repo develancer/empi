@@ -19,12 +19,6 @@ const double GAUSS_HALF_WIDTH = 3.0;
 const double MIN_SCALE_IN_SAMPLES = 2.0;
 
 /**
- * If the scalar product between two normalized Gabor atoms is smaller
- * than this value, the atoms are classified as orthogonal.
- */
-const double ORTHOGONALITY = 1.0e-8;
-
-/**
  * Multiply given array by discretely sampled Gabor function,
  * i.e. transform x[t] := x[t] g[t], where g[t] = exp(−π(t-t₀)²/s²).
  *
@@ -74,18 +68,6 @@ double GaborComputer::compute(int tIndex, std::vector<complex>& buffer) {
 		square += moduli * moduli;
 	}
 	return square;
-}
-
-//------------------------------------------------------------------------------
-
-GaborProductEstimator::GaborProductEstimator(double s1, double s2) :
-s12(s1*s1), s22(s2*s2), A(s12 + s22),
-part(M_SQRT2 * std::sqrt(s1 * s2 / A))
-{ }
-
-double GaborProductEstimator::estimate(double t1, double t2) const {
-	double dt = t1 - t2;
-	return part * std::exp(-M_PI/A * dt * dt);
 }
 
 //------------------------------------------------------------------------------
@@ -218,12 +200,9 @@ void GaborWorkspace::subtractAtom(const Atom& atom, SingleSignal& signal, int ch
 	#endif
 	for (int i=0; i<count; ++i) {
 		GaborWorkspaceMap& map = *maps[i];
-		GaborProductEstimator estimator(sA, map.s);
-		if (estimator.part >= ORTHOGONALITY) {
-			for (int tIndex=0; tIndex<map.tCount; ++tIndex) {
-				if (estimator.estimate(tA, map.t(tIndex)) >= ORTHOGONALITY) {
-					map.compute(signal, channel, tIndex);
-				}
+		for (int tIndex=0; tIndex<map.tCount; ++tIndex) {
+			if (fabs(map.t(tIndex) - tA) <= (map.s + sA) * GAUSS_HALF_WIDTH) {
+				map.compute(signal, channel, tIndex);
 			}
 		}
 	}

@@ -41,13 +41,6 @@ struct GaborComputer {
 	double compute(int tIndex, std::vector<complex>& buffer);
 };
 
-struct GaborProductEstimator {
-	const double s12, s22, A, part;
-
-	GaborProductEstimator(double s1, double s2);
-	double estimate(double t1, double t2) const;
-};
-
 //------------------------------------------------------------------------------
 
 class GaborWorkspace : public Workspace {
