@@ -238,26 +238,31 @@ Workspace* GaborWorkspaceBuilder::prepareWorkspace(double freqSampling, int chan
 	double aDenomSqrt = 1.0 - energyError;
 	double aNominPart = energyError*(2.0-energyError)*(energyError*energyError-2*energyError+2);
 	double a = (1.0 + std::sqrt(aNominPart)) / (aDenomSqrt * aDenomSqrt);
+	double dl = log(a);
 
 	const double tMax = (sampleCount-1) / freqSampling;
+	const double lMin = log(scaleMin);
+	const double lMax = log(scaleMax);
+	long lCount = std::lrint((lMax - lMin)/dl + 0.5) + 1;
 
 	std::vector<std::shared_ptr<GaborWorkspaceMap>> maps;
 	int count = 0;
-	for (double s=scaleMin; s<=scaleMax; s*=a) {
+	for (int i=0; i<lCount; ++i) {
+		const double s = exp(lMin + i*(lMax - lMin)/(lCount - 1));
 		const double dt = root * s;
 		const double df = root / s;
 		const double hwGabor = GAUSS_HALF_WIDTH * s;
 
-		const long Ngauss = std::lrint(2.0 * hwGabor * freqSampling - 0.5) + 1;
+		const long Ngauss = 2 * std::lrint(hwGabor * freqSampling - 0.5) + 1;
 
 		const long Nfft = fftwRound( std::max(Ngauss, std::lrint(freqSampling/df + 0.5)) );
-		const long tCount = std::lrint(tMax/dt - 0.5) + 1;
+		const long tCount = std::lrint(tMax/dt + 0.5) + 1;
 		if (std::max(Nfft, tCount) > static_cast<long>(std::numeric_limits<int>::max())) {
 			throw Exception("signalFileIsTooLongForThisDecomposition");
 		}
 		long fCount = Nfft / 2 + 1;
 		if (std::isfinite(freqMax) && freqMax > 0) {
-			fCount = std::min(fCount, std::lrint(freqMax/df - 0.5) + 1);
+			fCount = std::min(fCount, std::lrint(freqMax/freqSampling*Nfft + 0.5) + 1);
 		}
 
 		maps.push_back(std::make_shared<GaborWorkspaceMap>(s, static_cast<int>(Nfft), static_cast<int>(fCount), static_cast<int>(tCount), freqSampling, tMax, channelCount, constraint));
