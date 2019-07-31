@@ -5,6 +5,13 @@ Enhanced Matching Pursuit Implementation (empi)
 Author: Piotr Różański <piotr@develancer.pl> ⓒ 2015–2018  
 & improvements of code and build process thanks to Aleks Chrabrow
 
+**CAUTION**: this branch contains a custom version of the code, performing
+the decomposition with meta-exponential envelope atoms (instead of Gabor atoms),
+with full adaptation of the dictionary structure.
+This is meant as a test for the significance of dictionary construction
+for the purposes of _Effects of envelope and dictionary structure
+on the performance of matching pursuit_ (submitted to IET Signal Processing).
+
 ## What is empi?
 
 empi is an implementation of Matching Pursuit algorithm

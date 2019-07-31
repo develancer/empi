@@ -111,6 +111,8 @@ public:
 	const size_t atomCount;
 	const MultichannelConstraint constraint;
 
+	std::vector<double> expFactors;
+
 	GaborWorkspaceMap(double s, int Nfft, int fCount, int tCount, double freqSampling, double tMax, int channelCount, MultichannelConstraint constraint);
 
 	void compute(const MultiSignal& signal);
