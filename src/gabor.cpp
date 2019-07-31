@@ -253,14 +253,48 @@ void GaborWorkspace::subtractAtom(const Atom& atom, SingleSignal& signal, int ch
 
 //------------------------------------------------------------------------------
 
+static double solve(double (*F)(double), double result) {
+    double Fx = F(result);
+    double xL = result, xP = result;
+    if (Fx > result) {
+        while (Fx > result) {
+            xL = xP;
+            xP *= 2;
+            Fx = F(xP);
+        }
+    } else if (Fx < result) {
+        while (Fx < result) {
+            xP = xL;
+            xL /= 2;
+            Fx = F(xL);
+        }
+    } else {
+        return result; // lucky first guess
+    }
+
+    // szukamy pomiędzy xL a xP
+    double x = (xP + xL) / 2;
+    while (xL < x && x < xP) {
+        Fx = F(x);
+        if (Fx > result) {
+            xL = x;
+        } else if (Fx < result) {
+            xP = x;
+        } else {
+            return x;
+        }
+        x = (xP + xL) / 2;
+    }
+    return x;
+}
+
 Workspace* GaborWorkspaceBuilder::prepareWorkspace(double freqSampling, int channelCount, int sampleCount, MultichannelConstraint constraint) const {
 	double scaleMin = std::max(this->scaleMin, MIN_SCALE_IN_SAMPLES / freqSampling);
 	double scaleMax = std::min(this->scaleMax, sampleCount / freqSampling);
-	double root = std::sqrt(-2.0/M_PI * std::log(1.0-energyError));
-	double aDenomSqrt = 1.0 - energyError;
-	double aNominPart = energyError*(2.0-energyError)*(energyError*energyError-2*energyError+2);
-	double a = (1.0 + std::sqrt(aNominPart)) / (aDenomSqrt * aDenomSqrt);
-	double dl = log(a);
+
+	double dl = solve(I, 1.0 - energyError);
+	double dfs = solve(J, 1.0 - energyError);
+	double dt_s = solve(K, 1.0 - energyError);
 
 	const double tMax = (sampleCount-1) / freqSampling;
 	const double lMin = log(scaleMin);
@@ -271,8 +305,8 @@ Workspace* GaborWorkspaceBuilder::prepareWorkspace(double freqSampling, int chan
 	int count = 0;
 	for (int i=0; i<lCount; ++i) {
 		const double s = exp(lMin + i*(lMax - lMin)/(lCount - 1));
-		const double dt = root * s;
-		const double df = root / s;
+		const double dt = dt_s * s;
+		const double df = dfs / s;
 		const double hwGabor = META_HALF_WIDTH * s;
 
 		const long Ngauss = 2 * std::lrint(hwGabor * freqSampling - 0.5) + 1;
