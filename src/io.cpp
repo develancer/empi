@@ -33,20 +33,22 @@ MultiSignal SignalReader::readEpoch(int samplesToRead) {
 			result.channels[i].samples.push_back(sample[selectedChannels[i]-1]);
 		}
 	}
+	result.segmentOffset = 0;
 	return result;
 }
 
-void SignalReader::seek(int sampleOffset) {
+void SignalReader::seek(long sampleOffset) {
 	if (fseek(file, sizeof(float) * channelCount * sampleOffset, SEEK_SET)) {
 		throw Exception("signalSeekFailed");
 	}
 }
 
 SignalReaderForAllEpochs::SignalReaderForAllEpochs(const std::string& pathToSignalFile, int epochSize)
-: SignalReader(pathToSignalFile), epochSize(epochSize) { }
+: SignalReader(pathToSignalFile), epochSize(epochSize), epochsRead(0) { }
 
 MultiSignal SignalReaderForAllEpochs::read() {
 	MultiSignal result = readEpoch(epochSize);
+	result.segmentOffset = epochSize * epochsRead++;
 	int sampleCount = result.channels[0].samples.size();
 	if (sampleCount > 0 && sampleCount != epochSize) {
 		throw Exception("fileIsTruncated");
@@ -67,8 +69,10 @@ MultiSignal SignalReaderForSelectedEpochs::read() {
 	} else {
 		int epoch = epochs.front();
 		epochs.pop();
-		seek(epochSize * (epoch-1));
+		long segmentOffset = epochSize * (epoch-1);
+		seek(segmentOffset);
 		MultiSignal result = readEpoch(epochSize);
+		result.segmentOffset = segmentOffset;
 		int sampleCount = result.channels[0].samples.size();
 		if (sampleCount != epochSize) {
 			throw Exception("fileIsTruncated");
@@ -85,7 +89,7 @@ MultiSignal SignalReaderForWholeSignal::read() {
 }
 
 BookWriter::BookWriter(const std::string& pathToBookFile)
-: pathToBookFile(pathToBookFile) {
+: totalSegmentsWritten(0), pathToBookFile(pathToBookFile) {
 	file = fopen(pathToBookFile.c_str(), "wb");
 	if (!file) throw Exception("couldNotCreateOutputFile");
 }
@@ -101,7 +105,7 @@ void BookWriter::close(void) {
 	}
 }
 
-void BookWriter::write(int epochNumber, const MultiSignal& signal, const MultiChannelResult& result) const {
+void LegacyBookWriter::write(const MultiSignal& signal, const MultiChannelResult& result) {
 	BookDataHeader headerData;
 	BookDataSignalHeader headerSignal;
 	BookDataAtomsHeader headerAtoms;
@@ -110,7 +114,7 @@ void BookWriter::write(int epochNumber, const MultiSignal& signal, const MultiCh
 	const int C = signal.channels.size();
 	const int N = C ? signal.channels.front().samples.size() : 0;
 
-	if (epochNumber == 1) {
+	if (!totalSegmentsWritten++) {
 		BookHeader headerStart;
 		// TODO meaningful information
 		setBE(headerStart.content.channelCount, C);
@@ -123,7 +127,7 @@ void BookWriter::write(int epochNumber, const MultiSignal& signal, const MultiCh
 	}
 
 	long headerDataPosition = ftell(file);
-	setBE(headerData.epochNumber, epochNumber);
+	setBE(headerData.epochNumber, totalSegmentsWritten);
 	setBE(headerData.sampleCount, N);
 	fwrite(&headerData, sizeof headerData, 1, file);
 
@@ -165,4 +169,66 @@ void BookWriter::write(int epochNumber, const MultiSignal& signal, const MultiCh
 	setBE(headerData.len, currentPosition - headerDataPosition - 5);
 	fwrite(&headerData, sizeof headerData, 1, file);
 	fseek(file, currentPosition, SEEK_SET);
+}
+
+void JsonBookWriter::close(void) {
+	fprintf(file, "}],\n\"segment_count\": %d\n}", totalSegmentsWritten);
+	BookWriter::close();
+}
+
+void JsonBookWriter::write(const MultiSignal& signal, const MultiChannelResult& result) {
+	const int C = signal.channels.size();
+	const int N = C ? signal.channels.front().samples.size() : 0;
+	const double freqSampling = signal.getFreqSampling();
+
+	if (!totalSegmentsWritten) {
+		fputs("{\n", file);
+		fprintf(file, "\"channel_count\": %d,\n", C);
+		fprintf(file, "\"sampling_frequency_Hz\": %.8lg,\n", freqSampling);
+		fputs("\"segments\": [{\n", file);
+	} else {
+		fputs("},{\n\n", file);
+	}
+	fprintf(file, "\"sample_count\": %d,\n", N);
+	fprintf(file, "\"segment_length_s\": %.15lg,\n", N / freqSampling);
+	fprintf(file, "\"segment_offset_s\": %.15lg,\n", signal.segmentOffset / freqSampling);
+	fputs("\"channels\": [{\n", file);
+
+	for (int c=0; c<C; ++c) {
+		if (c > 0) {
+			fputs("},{\n", file);
+		}
+		fputs("\"atoms\": [{\n", file);
+
+		bool firstAtomWritten = false;
+		for (const Atom& atom : result[c]) {
+			if (firstAtomWritten) {
+				fputs("},{\n", file);
+			}
+
+			fprintf(file, "\"amplitude\": %.8lg,\n", atom.params[1]);
+			fprintf(file, "\"energy\": %.8lg,\n", atom.params[0] * atom.params[0] / freqSampling);
+			fprintf(file, "\"envelope\": \"%s\",\n", "gauss");
+			fprintf(file, "\"f_Hz\": %.8lg,\n", freqSampling/2 * atom.params[4]);
+			fprintf(file, "\"phase\": %.8lg,\n", atom.params[5]);
+			fprintf(file, "\"scale_s\": %.8lg,\n", atom.params[3] / freqSampling);
+			fprintf(file, "\"t0_s\": %.8lg,\n", atom.params[2] / freqSampling);
+			fprintf(file, "\"t0_abs_s\": %.8lg\n", (signal.segmentOffset + atom.params[2]) / freqSampling);
+
+			firstAtomWritten = true;
+		}
+
+		fputs("}],\n\"samples\": [\n", file);
+
+		fprintf(file, "%.8lg", signal.channels[c].samples[0]);
+		for (int i=1; i<N; ++i) {
+			fprintf(file, ",\n%.8lg", signal.channels[c].samples[i]);
+		}
+
+		fputs("\n]\n", file);
+	}
+
+	fputs("}]\n", file);
+
+	totalSegmentsWritten++;
 }

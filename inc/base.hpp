@@ -47,6 +47,7 @@ struct SingleSignal {
 };
 
 struct MultiSignal {
+	long segmentOffset; // in samples
 	std::vector<SingleSignal> channels;
 
 	double computeEnergy() const {

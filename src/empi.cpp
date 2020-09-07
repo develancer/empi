@@ -46,7 +46,7 @@ static std::vector<int> parseIntegerSubset(const std::string& string, int max) {
 	return numbers;
 }
 
-static void empi(const char* configFilePath) {
+static void empi(const char* configFilePath, bool useLegacyFormat) {
 	std::unique_ptr<WorkspaceBuilder> builder;
 	std::unique_ptr<Decomposition> decomposition;
 	std::unique_ptr<SignalReader> reader;
@@ -138,12 +138,18 @@ static void empi(const char* configFilePath) {
 	prefix = prefix.substr(0, prefix.find_last_of('.'));
 	typeOfMP.resize(3);
 
-	std::string pathToBookFile = legacyConfiguration.at("nameOfOutputDirectory")+"/"+prefix+"_"+typeOfMP+".b";
+	std::string pathToBookFile = legacyConfiguration.at("nameOfOutputDirectory")+"/"+prefix+"_"+typeOfMP;
 
 	// legacy configuration END ///////////////////////////////////////
 
 	int epochProcessed = 0;
-	BookWriter writer(pathToBookFile);
+	std::unique_ptr<BookWriter> writer;
+	if (useLegacyFormat) {
+		writer.reset(new LegacyBookWriter(pathToBookFile + ".b"));
+	} else {
+		writer.reset(new JsonBookWriter(pathToBookFile + ".json"));
+	}
+
 	std::unique_ptr<Workspace> workspace;
 	while (true) {
 		MultiSignal signal = reader->read();
@@ -158,9 +164,9 @@ static void empi(const char* configFilePath) {
 		}
 		std::cout << "START" << '\t' << ++epochProcessed << '\t' << channelCount << '\t' << settings.iterationMax << '\t' << 100*(1-settings.residualEnergy) << std::endl;
 		MultiChannelResult result = decomposition->compute(settings, workspace.get(), signal);
-		writer.write(epochProcessed, signal, result);
+		writer->write(signal, result);
 	}
-	writer.close();
+	writer->close();
 	puts(" END");
 
 	PRINT_TIMERS;
@@ -172,18 +178,21 @@ static void exception(const char* message) {
 }
 
 int main(int argc, char** argv) {
-	const char* configFilePath = 0;
+	bool useLegacyFormat = false;
+	const char* configFilePath = nullptr;
 	for (int i=1; i<argc; ++i) {
-		if (*argv[i] != '-' && *argv[i] != 0) {
+		if (!strcmp("-x", argv[i])) {
+			useLegacyFormat = true;
+		} else if (*argv[i] != '-' && *argv[i] != 0) {
 			configFilePath = argv[i];
 		}
 	}
 	if (!configFilePath) {
-		fprintf(stderr, "USAGE: %s path_to_config_file\n", argv[0]);
+		fprintf(stderr, "USAGE: %s [ -x ] path_to_config_file\n", argv[0]);
 		return 1;
 	}
 	try {
-		empi(configFilePath);
+		empi(configFilePath, useLegacyFormat);
 	} catch (const Exception& e) {
 		exception(e.what());
 	} catch (const std::bad_alloc& e) {

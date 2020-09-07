@@ -130,7 +130,7 @@ class SignalReader {
 protected:
 	MultiSignal readEpoch(int samplesToRead);
 
-	void seek(int sampleOffset);
+	void seek(long sampleOffset);
 
 public:
 	const std::string pathToSignalFile;
@@ -140,7 +140,7 @@ public:
 
 	SignalReader(const std::string& pathToSignalFile);
 
-	~SignalReader(void);
+	virtual ~SignalReader(void);
 
 	virtual MultiSignal read(void) =0;
 };
@@ -148,6 +148,7 @@ public:
 class SignalReaderForAllEpochs : public SignalReader {
 protected:
 	const int epochSize;
+	int epochsRead;
 
 public:
 	SignalReaderForAllEpochs(const std::string& pathToSignalFile, int epochSize);
@@ -174,18 +175,36 @@ public:
 //------------------------------------------------------------------------------
 
 class BookWriter {
+protected:
 	FILE* file;
+	int totalSegmentsWritten;
 
 public:
 	const std::string pathToBookFile;
 
-	BookWriter(const std::string& pathToBookFile);
+	explicit BookWriter(const std::string& pathToBookFile);
 
-	~BookWriter(void);
+	virtual ~BookWriter(void);
+
+	virtual void close(void);
+
+	virtual void write(const MultiSignal& signal, const MultiChannelResult& result) =0;
+};
+
+class LegacyBookWriter : public BookWriter {
+public:
+	explicit LegacyBookWriter(const std::string& pathToBookFile) : BookWriter(pathToBookFile) { }
+
+	void write(const MultiSignal& signal, const MultiChannelResult& result);
+};
+
+class JsonBookWriter : public BookWriter {
+public:
+	explicit JsonBookWriter(const std::string& pathToBookFile) : BookWriter(pathToBookFile) { }
 
 	void close(void);
 
-	void write(int epochNumber, const MultiSignal& signal, const MultiChannelResult& result) const;
+	void write(const MultiSignal& signal, const MultiChannelResult& result);
 };
 
 #endif	/* EMPI_IO_HPP */

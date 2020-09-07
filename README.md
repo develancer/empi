@@ -2,8 +2,7 @@ empi
 ====
 
 Enhanced Matching Pursuit Implementation (empi)  
-Author: Piotr Różański <piotr@develancer.pl> ⓒ 2015–2018  
-& improvements of code and build process thanks to Aleks Chrabrow
+Author: Piotr Różański <piotr@develancer.pl> ⓒ 2015–2020
 
 ## What is empi?
 
@@ -91,12 +90,13 @@ Single invocation of empi will
 
 * read a single binary file (or its part),
 * decompose it as a linear combination of Gabor atoms, and
-* save the results to a specified format (currently only
-[SVAROG](https://github.com/BrainTech/svarog)'s “book” format is supported).
+* save the results to either JSON or legacy format
+([SVAROG](https://github.com/BrainTech/svarog)'s “book” format is supported).
 
 empi needs to be run with a single command-line argument: a path to the
 configuration file. If run with no arguments, it will print the correct usage.
-For backward compatibility with MP5, all arguments starting with “`-`” are ignored.
+Default output format is JSON; however, if `-x` is given as an argument,
+legacy “book” file will be created instead.
 
 ### Configuration file format
 
@@ -157,7 +157,8 @@ in column-major order (rows = channels, columns = samples).
 
 * _nameOfOutputDirectory_ is a path to the output directory, relative to the
 current directory. The output file will be named based on the name of the input
-file, e.g. if input file is “signal.bin”, the output will be named “signal_XYZ.b”,
+file, e.g. if input file is “signal.bin”, the output will be named either
+“signal_XYZ.b” or “signal_XYZ.json” (depending on the selected output format),
 where XYZ is the selected variant of MP (parametr _MP_).
 
 * _samplingFrequency_ is a sampling frequency of the input signal, specified in
