@@ -99,7 +99,6 @@ public:
 //------------------------------------------------------------------------------
 
 class GaborWorkspaceMap : public TimeFreqMap<complex> {
-	const int Nfft;
 	fftwDouble input;
 	fftwComplex output;
 	fftwPlan plan;

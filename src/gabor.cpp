@@ -255,7 +255,7 @@ Workspace* GaborWorkspaceBuilder::prepareWorkspace(double freqSampling, int chan
 
 GaborWorkspaceMap::GaborWorkspaceMap(double s, int Nfft, int fCount, int tCount, double freqSampling, double tMax, int channelCount, MultichannelConstraint constraint)
 :	TimeFreqMap<complex>(channelCount, fCount, tCount),
-	Nfft(Nfft), input(Nfft), output(Nfft/2+1),
+	input(Nfft), output(Nfft/2+1),
 	plan(Nfft, input, output, FFTW_ESTIMATE | FFTW_DESTROY_INPUT),
 	s(s), freqSampling(freqSampling), atomCount(fCount * tCount), constraint(constraint)
 {
