@@ -19,6 +19,12 @@
 #include "mmp.hpp"
 #include "timer.hpp"
 
+enum OutputFormat {
+	LEGACY,
+	JSON,
+	SQLITE
+};
+
 static std::vector<int> parseIntegerSubset(const std::string& string, int max) {
 	std::string scString;
 	std::stringstream scStream(string);
@@ -46,7 +52,7 @@ static std::vector<int> parseIntegerSubset(const std::string& string, int max) {
 	return numbers;
 }
 
-static void empi(const char* configFilePath, bool useLegacyFormat) {
+static void empi(const char* configFilePath, OutputFormat outputFormat) {
 	std::unique_ptr<WorkspaceBuilder> builder;
 	std::unique_ptr<Decomposition> decomposition;
 	std::unique_ptr<SignalReader> reader;
@@ -144,10 +150,12 @@ static void empi(const char* configFilePath, bool useLegacyFormat) {
 
 	int epochProcessed = 0;
 	std::unique_ptr<BookWriter> writer;
-	if (useLegacyFormat) {
+	if (outputFormat == LEGACY) {
 		writer.reset(new LegacyBookWriter(pathToBookFile + ".b"));
-	} else {
+	} else if (outputFormat == JSON) {
 		writer.reset(new JsonBookWriter(pathToBookFile + ".json"));
+	} else {
+		writer.reset(new SQLiteBookWriter(pathToBookFile + ".db"));
 	}
 
 	std::unique_ptr<Workspace> workspace;
@@ -166,7 +174,7 @@ static void empi(const char* configFilePath, bool useLegacyFormat) {
 		MultiChannelResult result = decomposition->compute(settings, workspace.get(), signal);
 		writer->write(signal, result);
 	}
-	writer->close();
+	writer->finalize();
 	puts(" END");
 
 	PRINT_TIMERS;
@@ -178,21 +186,23 @@ static void exception(const char* message) {
 }
 
 int main(int argc, char** argv) {
-	bool useLegacyFormat = false;
+	OutputFormat outputFormat = SQLITE;
 	const char* configFilePath = nullptr;
 	for (int i=1; i<argc; ++i) {
 		if (!strcmp("-x", argv[i])) {
-			useLegacyFormat = true;
+			outputFormat = LEGACY;
+		} else if (!strcmp("-j", argv[i])) {
+			outputFormat = JSON;
 		} else if (*argv[i] != '-' && *argv[i] != 0) {
 			configFilePath = argv[i];
 		}
 	}
 	if (!configFilePath) {
-		fprintf(stderr, "USAGE: %s [ -x ] path_to_config_file\n", argv[0]);
+		fprintf(stderr, "USAGE: %s [ -x | -j ] path_to_config_file\n", argv[0]);
 		return 1;
 	}
 	try {
-		empi(configFilePath, useLegacyFormat);
+		empi(configFilePath, outputFormat);
 	} catch (const Exception& e) {
 		exception(e.what());
 	} catch (const std::bad_alloc& e) {

@@ -90,13 +90,14 @@ Single invocation of empi will
 
 * read a single binary file (or its part),
 * decompose it as a linear combination of Gabor atoms, and
-* save the results to either JSON or legacy format
+* save the results to either SQLite, JSON or legacy format
 ([SVAROG](https://github.com/BrainTech/svarog)'s “book” format is supported).
 
 empi needs to be run with a single command-line argument: a path to the
 configuration file. If run with no arguments, it will print the correct usage.
-Default output format is JSON; however, if `-x` is given as an argument,
-legacy “book” file will be created instead.
+Default output format is SQLite; however:
+* if `-x` is given as an argument, legacy “book” file will be created instead;
+* if `-j` is given as an argument, JSON output file will be created instead.
 
 ### Configuration file format
 
@@ -213,17 +214,6 @@ empi (file “LICENCE”); if not, write to the Free Software Foundation, Inc.,
 This section is dedicated to the steps needed to cross-compile empi for a
 different operating system and/or architecture on 64-bit Linux
 (specifically Ubuntu 15.10).
-
-### 32-bit Linux
-
-Package _g++-multilib_ and _libc6-dev-i386_ must be installed. Also, static version
-of FFTW library must be cross-compiled for 32-bit system and available in
-the toolchain. To cross-compile FFTW, simply pass `C_FLAGS=-m32` to the library's
-`./configure` script. Having it all set, return to the empi directory, run
-
-	make empi-lin32
-
-and that's it.
 
 ### Apple Mac (OS X)
 

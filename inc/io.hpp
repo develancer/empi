@@ -8,10 +8,12 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <queue>
 #include <vector>
 
 #include "base.hpp"
+#include "sqlite3.h"
 
 //------------------------------------------------------------------------------
 
@@ -176,7 +178,6 @@ public:
 
 class BookWriter {
 protected:
-	FILE* file;
 	int totalSegmentsWritten;
 
 public:
@@ -184,25 +185,76 @@ public:
 
 	explicit BookWriter(const std::string& pathToBookFile);
 
-	virtual ~BookWriter(void);
+	virtual ~BookWriter() = default;
 
-	virtual void close(void);
+	virtual void finalize() { }
 
 	virtual void write(const MultiSignal& signal, const MultiChannelResult& result) =0;
 };
 
-class LegacyBookWriter : public BookWriter {
+//------------------------------------------------------------------------------
+
+class FileBackedBookWriter : public BookWriter {
+protected:
+	std::shared_ptr<FILE> file;
+
 public:
-	explicit LegacyBookWriter(const std::string& pathToBookFile) : BookWriter(pathToBookFile) { }
+	explicit FileBackedBookWriter(const std::string& pathToBookFile);
+
+	virtual void finalize();
+};
+
+//------------------------------------------------------------------------------
+
+class LegacyBookWriter : public FileBackedBookWriter {
+public:
+	explicit LegacyBookWriter(const std::string& pathToBookFile) : FileBackedBookWriter(pathToBookFile) { }
+
+	virtual void write(const MultiSignal& signal, const MultiChannelResult& result);
+};
+
+//------------------------------------------------------------------------------
+
+class JsonBookWriter : public FileBackedBookWriter {
+public:
+	explicit JsonBookWriter(const std::string& pathToBookFile) : FileBackedBookWriter(pathToBookFile) { }
+
+	void finalize();
 
 	void write(const MultiSignal& signal, const MultiChannelResult& result);
 };
 
-class JsonBookWriter : public BookWriter {
-public:
-	explicit JsonBookWriter(const std::string& pathToBookFile) : BookWriter(pathToBookFile) { }
+//------------------------------------------------------------------------------
 
-	void close(void);
+class SQLiteBookWriter : public BookWriter {
+protected:
+	std::shared_ptr<sqlite3> db;
+	std::shared_ptr<sqlite3_stmt> stmtInsertAtom;
+	std::shared_ptr<sqlite3_stmt> stmtInsertMetadata;
+	std::shared_ptr<sqlite3_stmt> stmtInsertSamples;
+	std::shared_ptr<sqlite3_stmt> stmtInsertSegment;
+
+	static std::shared_ptr<sqlite3> createDatabase(const char* path);
+
+	std::shared_ptr<sqlite3_stmt> prepare(const char* sql);
+
+	void execute(const char* sql);
+
+	void createTables();
+
+	void insertAtom(int segmentID, int sampleCount, int iteration, double amplitude, double energy, const char* envelope, double f, double phase, double scale, double t0, double t0_abs);
+
+	template<typename B, typename V>
+	void insertMetadata(const char* param, V value, B sqlite3_bind);
+
+	void insertSamples(int segmentID, int channelID, const std::vector<float>& samples);
+
+	void insertSegment(int segmentID, int sampleCount, double segmentLength, double segmentOffset);
+
+public:
+	explicit SQLiteBookWriter(const std::string& pathToBookFile);
+
+	void finalize();
 
 	void write(const MultiSignal& signal, const MultiChannelResult& result);
 };
