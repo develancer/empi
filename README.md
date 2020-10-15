@@ -93,6 +93,9 @@ Single invocation of empi will
 * save the results to either SQLite, JSON or legacy format
 ([SVAROG](https://github.com/BrainTech/svarog)'s “book” format is supported).
 
+Directory _demo_ includes Python and Matlab/Octave scripts demonstrating
+how to access data from the resulting SQLite decomposition file.
+
 empi needs to be run with a single command-line argument: a path to the
 configuration file. If run with no arguments, it will print the correct usage.
 Default output format is SQLite; however:
