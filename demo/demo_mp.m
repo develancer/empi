@@ -56,8 +56,15 @@ function [] = demo_mp(segment_id)
             %end
 
             g = amplitude * gabor(t, s, t0, f, phase);
-            energy = sum(g.*2) / sampling_frequency;
+            energy = sum(g.^2) / sampling_frequency;
             reconstruction = reconstruction + g;
+            disp(sprintf('\n-- ATOM IN CHANNEL %d --', channel_id));
+            disp(sprintf('amplitude = %.3f', amplitude));
+            disp(sprintf('scale = %.3f s', s));
+            disp(sprintf('position in segment = %.3f s', t0));
+            disp(sprintf('position in signal = %.3f s', t0_abs));
+            disp(sprintf('frequency = %.3f Hz', f));
+            disp(sprintf('energy = %.6f', energy));
         end
         stmt.dispose();
 
