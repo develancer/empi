@@ -13,7 +13,6 @@ endif()
 
 # Basic configuration
 file(GLOB EMPI_SOURCES src/*.cpp)
-include_directories(inc ${FFTW_INCLUDES})
 add_executable(empi ${EMPI_SOURCES})
 set_property(TARGET empi PROPERTY CXX_STANDARD 11)
 
@@ -35,6 +34,7 @@ find_library(FFTW_LIBRARIES NAMES fftw3 libfftw3-3 fftw)
 if(NOT FFTW_LIBRARIES)
 	message(FATAL_ERROR "Required FFTW library has not been found!")
 endif()
+include_directories(inc ${FFTW_INCLUDES})
 
 # OpenMP is optional
 find_package(OpenMP)
