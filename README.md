@@ -2,7 +2,7 @@ empi
 ====
 
 Enhanced Matching Pursuit Implementation (empi)  
-Author: Piotr Różański <piotr@develancer.pl> ⓒ 2015–2020
+Author: Piotr Różański <piotr@develancer.pl> ⓒ 2015–2021
 
 ## What is empi?
 
@@ -44,11 +44,8 @@ package “libfftw3-dev” does the trick. MacOS and other Linux distributions
 may have packages of slightly different names. Under Windows, follow the
 FFTW installation instructions.
 
-Also, you will need a modern C++ compiler with support for C++11 standard.
-OpenMP support is recommended. Under OS X, OpenMP runtime
-(available at [LLVM Download Page](http://llvm.org/releases/download.html))
-should be downloaded
-and put into system library directory (e.g. /usr/lib) prior to compiling.
+Also, you will need a modern C++ compiler with support for C++17 standard,
+as well as CMake version 3.12 or later.
 
 #### Configuration
 
@@ -77,12 +74,6 @@ appear. It can by installed to system directory (e.g. /usr/local/bin)
 by calling
 
 	sudo make install
-
-#### Cross-compilation
-
-Binaries can also be cross-compiled for a different system or architecture.
-Detailed information on cross-compiling empi can be found in the Appendix,
-at the end of this document.
 
 ## How to use empi?
 
@@ -211,63 +202,3 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 You should have received a copy of the GNU General Public License along with
 empi (file “LICENCE”); if not, write to the Free Software Foundation, Inc.,
 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-
-## Appendix. Cross-compiling empi
-
-This section is dedicated to the steps needed to cross-compile empi for a
-different operating system and/or architecture on 64-bit Linux
-(specifically Ubuntu 15.10).
-
-### Apple Mac (OS X)
-
-This is probably the most complex case. The project
-[osxcross](https://github.com/tpoechtrager/osxcross) is a good start. It allows
-to build a full cross-compiling toolchain for both 32-bit and 64-bit OS X
-compilation. This section will focus on 64-bit toolchain (32-bit is analogous).
-As a part of its configuration, it is necessary to sign up for the Apple
-developer's account and download the Xcode package from the official Apple site
-(don't worry, it's free).
-
-After the toolchain is built, it is necessary to build the FFTW library
-and copy it (the library itself and header files) into the toolchain.
-To successfully compile FFTW, it is necessary to specify all the paths to
-the compiler binaries, e.g. (some of the below may not be necessary)
-
-	AR=x86_64-apple-darwin15-ar \
-	AS=x86_64-apple-darwin15-as \
-	CC=x86_64-apple-darwin15-clang \
-	LD=x86_64-apple-darwin15-ld \
-	RANLIB=x86_64-apple-darwin15-ranlib \
-	./configure --host=x86_64-apple
-	make
-
-The static version of compiled FFTW library (libfftw3.a) has to be placed in
-the toolchain library directory.
-
-Having it all set, return to the empi directory, run
-
-	make empi-osx64
-
-and that's it, finally. The cross-compiled version will _not_ use OpenMP.
-
-### Microsoft Windows
-
-Both 32-bit or 64-bit Windows binaries can be cross-compiled. Packages
-_g++-mingw-w64-i686_ (for 32-bit) and _g++-mingw-w64-x86-64_ (for 64-bit)
-must be installed. Since FFTW developers generally discourage manually
-compiling FFTW for Windows, it is better to stick with shared versions,
-which can be obtained from
-[FFTW download page](http://www.fftw.org/install/windows.html).
-After downloading, install DLL files and include headers in each toolchain
-(i686 and/or x86-64), e.g.:
-
-* /usr/lib/gcc/i686-w64-mingw32/5.3-win32 for 32-bit Windows
-* /usr/lib/gcc/x86_64-w64-mingw32/5.3-win32 for 64-bit Windows
-
-To generate cross-compiled exe files, execute
-
-	make empi-win32.exe empi-win64.exe
-
-To use generated binaries under MS Windows, the dynamic version of FFTW library
-(DLL file) has to be placed in the same directory as the executable file.
-All the other libraries will be linked statically into the executable.
