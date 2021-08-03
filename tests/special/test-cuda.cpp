@@ -10,13 +10,12 @@ double rand_float() {
     return (double) rand() / (double) RAND_MAX - 0.5;
 }
 
-void benchmark(Worker& calculator, const SpectrogramRequest& request, const ExtractedMaximum* reference_maxima)
-{
+void benchmark(Worker &calculator, const SpectrogramRequest &request, const ExtractedMaximum *reference_maxima) {
     calculator.compute(request);
 
     if (reference_maxima) {
         double max_diff = 0;
-        for (int i=0; i<request.how_many; ++i) {
+        for (int i = 0; i < request.how_many; ++i) {
             assert(request.maxima[i].bin_index == reference_maxima[i].bin_index);
             max_diff = std::max(max_diff, std::abs(request.maxima[i].energy - reference_maxima[i].energy));
         }
@@ -25,26 +24,25 @@ void benchmark(Worker& calculator, const SpectrogramRequest& request, const Extr
     }
 }
 
-int main(void)
-{
+void run_test(Extractor extractor) {
     const int envelope_length = 800;
     Array1D<real> envelope(envelope_length);
-    for (int i=0; i<envelope_length; ++i) {
+    for (int i = 0; i < envelope_length; ++i) {
         envelope[i] = rand_float();
     }
 
     const int output_bins = 300;
     Array1D<Corrector> correctors(output_bins);
-    for (int i=0; i<output_bins; ++i) {
-        correctors[i] = Corrector(0.5 *  complex(rand_float(), rand_float()));
+    for (int i = 0; i < output_bins; ++i) {
+        correctors[i] = Corrector(0.5 * complex(rand_float(), rand_float()));
     }
 
     const index_t channel_length = 12000;
     const int channel_count = 10;
     PinnedArray2D<real> data(channel_count, channel_length);
-    for (int c=0; c<channel_count; ++c) {
-        real* channel = data[c];
-        for (index_t i=0; i<channel_length; ++i) {
+    for (int c = 0; c < channel_count; ++c) {
+        real *channel = data[c];
+        for (index_t i = 0; i < channel_length; ++i) {
             channel[i] = rand_float();
         }
     }
@@ -61,12 +59,12 @@ int main(void)
     request.window_length = 1024;
     request.output_bins = output_bins;
     request.correctors = correctors.get();
-    request.extractor = extractorVariablePhase;
+    request.extractor = extractor;
 
     Array1D<ExtractedMaximum> maxima_dummy(request.how_many);
     Array1D<ExtractedMaximum> maxima_cuda(request.how_many);
 
-    WorkerCUDA cuda(channel_count, {request });
+    WorkerCUDA cuda(channel_count, {request});
     WorkerDummy dummy;
 
     request.maxima = maxima_dummy.get();
@@ -74,6 +72,10 @@ int main(void)
 
     request.maxima = maxima_cuda.get();
     benchmark(cuda, request, maxima_dummy.get());
+}
 
+int main() {
+    run_test(extractorVariablePhase);
+    run_test(extractorConstantPhase);
     puts("OK");
 }

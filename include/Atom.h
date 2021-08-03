@@ -81,7 +81,7 @@ public:
      *
      * @return smart pointer to a newly created ExtendedAtom
      */
-    virtual ExtendedAtomPointer extend() = 0;
+    virtual ExtendedAtomPointer extend() const = 0;
 };
 
 using BasicAtomPointer = std::shared_ptr<BasicAtom>;

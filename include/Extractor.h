@@ -38,27 +38,27 @@ struct ExtractedMaximum {
     }
 };
 
-using Extractor = ExtractedMaximum (*)(int channel_count, int output_bins, const complex *const *channels, const Corrector *correctors,
+using Extractor = ExtractedMaximum (*)(int channel_count, int output_bins, complex *const *channels, const Corrector *correctors,
                                        double *bins_buffer, ExtraData *atom_data);
 
 /**
  * Extractor implementation for single-channel decomposition.
  */
-ExtractedMaximum extractorSingleChannel(int channel_count, int output_bins, const complex *const *channels, const Corrector *correctors,
+ExtractedMaximum extractorSingleChannel(int channel_count, int output_bins, complex *const *channels, const Corrector *correctors,
                                         double *bins_buffer, ExtraData *atom_data);
 
 /**
  * Extractor implementation for multi-channel decomposition where atoms in all signals share position, frequency and scale,
  * but amplitudes as well as phases may differ across channels.
  */
-ExtractedMaximum extractorVariablePhase(int channel_count, int output_bins, const complex *const *channels, const Corrector *correctors,
+ExtractedMaximum extractorVariablePhase(int channel_count, int output_bins, complex *const *channels, const Corrector *correctors,
                                         double *bins_buffer, ExtraData *atom_data);
 
 /**
  * Extractor implementation for multi-channel decomposition where atoms in all signals share position, frequency, scale as well as phase,
  * but amplitudes may differ across channels.
  */
-ExtractedMaximum extractorConstantPhase(int channel_count, int output_bins, const complex *const *channels, const Corrector *correctors,
+ExtractedMaximum extractorConstantPhase(int channel_count, int output_bins, complex *const *channels, const Corrector *correctors,
                                         double *bins_buffer, ExtraData *atom_data);
 
 #endif //EMPI_EXTRACTOR_H

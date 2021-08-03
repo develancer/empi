@@ -8,7 +8,7 @@
 #include "SpectrogramRequest.h"
 #include "Types.h"
 
-ExtractedMaximum extractorForTest(int, int, const complex *const *, const Corrector *, double *, ExtraData *)
+ExtractedMaximum extractorForTest(int, int, complex *const *, const Corrector *, double *, ExtraData *)
 {
     return ExtractedMaximum();
 }

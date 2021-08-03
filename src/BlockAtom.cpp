@@ -16,7 +16,7 @@
 BlockAtom::BlockAtom(Array2D<double> data, double energy, std::shared_ptr<Family> family_, double frequency, double position, Extractor extractor)
         : BasicAtom(std::move(data), energy), BlockAtomTrait(frequency, position, NAN), extractor(extractor), family(std::move(family_)) {}
 
-ExtendedAtomPointer BlockAtom::extend() {
+ExtendedAtomPointer BlockAtom::extend() const {
     index_t envelope_length;
     index_t envelope_offset;
     std::vector<double> envelope;

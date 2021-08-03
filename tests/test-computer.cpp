@@ -35,7 +35,7 @@ class BasicAtomForTest : public BasicAtom {
 public:
     explicit BasicAtomForTest(Array2D<double> data, double energy) : BasicAtom(std::move(data), energy) {}
 
-    ExtendedAtomPointer extend() override {
+    ExtendedAtomPointer extend() const override {
         return std::make_shared<ExtendedAtomForTest>(data(), get_energy());
     }
 };

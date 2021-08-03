@@ -6,7 +6,7 @@
 #include <cassert>
 #include "Extractor.h"
 
-ExtractedMaximum extractorSingleChannel(int channel_count, int output_bins, const complex *const *channels, const Corrector *correctors,
+ExtractedMaximum extractorSingleChannel(int channel_count, int output_bins, complex *const *channels, const Corrector *correctors,
                                         double *bins_buffer, ExtraData *extra_data) {
     assert(channel_count == 1);
     const complex *channel = channels[0];
@@ -37,7 +37,7 @@ ExtractedMaximum extractorSingleChannel(int channel_count, int output_bins, cons
     return max;
 }
 
-ExtractedMaximum extractorVariablePhase(int channel_count, int output_bins, const complex *const *channels, const Corrector *correctors,
+ExtractedMaximum extractorVariablePhase(int channel_count, int output_bins, complex *const *channels, const Corrector *correctors,
                                         double *bins_buffer, ExtraData *extra_data) {
     double max_upper_bound = std::numeric_limits<double>::lowest();
     int i_max = 0;
@@ -76,8 +76,40 @@ ExtractedMaximum extractorVariablePhase(int channel_count, int output_bins, cons
     return max;
 }
 
-ExtractedMaximum extractorConstantPhase(int, int, const complex *const *, const Corrector *, double *, ExtraData *) {
-    ExtractedMaximum max{0, 0};
-    // TODO
-    return max;
+ExtractedMaximum extractorConstantPhase(int channel_count, int output_bins, complex *const *channels, const Corrector *correctors,
+                                        double *bins_buffer, ExtraData *extra_data) {
+    double max_energy = std::numeric_limits<double>::lowest();
+    int i_max = 0;
+    for (int i = 0; i < output_bins; ++i) {
+        complex direction = 0;
+        for (int c = 0; c < channel_count; ++c) {
+            direction += channels[c][i] * channels[c][i];
+        }
+        double angle = 0.5 * std::arg(direction); // result in range ±π/2
+        auto corrector_result = correctors[i].compute(std::polar(1.0, angle));
+        double energy = 0.0;
+        for (int c = 0; c < channel_count; ++c) {
+            double cos_factor = std::cos(std::arg(channels[c][i]) - angle);
+            energy += std::norm(channels[c][i]) * cos_factor * cos_factor;
+        }
+        energy *= corrector_result.energy();
+        if (energy > max_energy) {
+            max_energy = energy;
+            i_max = i;
+            if (extra_data) {
+                for (int c = 0; c < channel_count; ++c) {
+                    double cos_factor = std::cos(std::arg(channels[c][i]) - angle);
+                    extra_data[c].energy = std::norm(channels[c][i]) * cos_factor * cos_factor * corrector_result.energy();
+                    extra_data[c].phase = corrector_result.phase();
+                    extra_data[c].amplitude = std::abs(channels[c][i]) * cos_factor * corrector_result.amplitude();
+                    if (extra_data[c].amplitude < 0) {
+                        extra_data[c].phase += (extra_data[c].phase < 0) ? 2*M_PI : -2*M_PI;
+                        extra_data[c].amplitude = -extra_data[c].amplitude;
+                    }
+                }
+            }
+        }
+    }
+
+    return {max_energy, i_max};
 }

@@ -226,8 +226,8 @@ static void empi(const char *configFilePath, bool json_output_mode) {
     if (typeOfMP == "smp") {
         reader = std::make_unique<SignalReaderSingleChannel>(std::move(reader));
         extractor = extractorVariablePhase;
-//  } else if (typeOfMP == "mmp1") {
-//      extractor = extractorConstantPhase;
+    } else if (typeOfMP == "mmp1") {
+        extractor = extractorConstantPhase;
     } else if (typeOfMP == "mmp3") {
         extractor = extractorVariablePhase;
     } else {

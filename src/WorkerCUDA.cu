@@ -75,6 +75,10 @@ class CudaCorrector {
 
 public:
     __device__ CudaCorrectorResult compute(cucomplex value) const {
+        const bool is_value_real = std::abs(cuCimag(value)) <= 1.0e-10 * std::abs(cuCreal(value));
+        if (is_value_real) {
+            return CudaCorrectorResult(ft, cuCdiv(value, make_cuDoubleComplex(0.5 + cuCreal(ft) / 2, cuCimag(ft) / 2)));
+        }
         const cucomplex corrected = cuCsub(value, cuCmul(cuConj(value), ft));
         return CudaCorrectorResult(ft, make_cuDoubleComplex(corrected.x * common_factor, corrected.y * common_factor));
     }
@@ -101,7 +105,7 @@ static __device__ __inline__ void warpReduce(volatile ExtractedMaximum *sdata, u
 
 template<unsigned THREADS_IN_BLOCK>
 static __global__ void
-extractorSingleChannelCUDA(unsigned channel_count, unsigned output_bins, const cucomplex **spectra,
+extractorSingleChannelCUDA(unsigned channel_count, unsigned output_bins, cucomplex **spectra,
                            ExtractedMaximum *maxima, CudaCorrector *correctors) {
     __shared__ ExtractedMaximum sdata[THREADS_IN_BLOCK];
     const unsigned int tid = threadIdx.x;
@@ -142,7 +146,62 @@ extractorSingleChannelCUDA(unsigned channel_count, unsigned output_bins, const c
 
 template<unsigned THREADS_IN_BLOCK>
 static __global__ void
-extractorVariablePhaseCUDA(unsigned channel_count, unsigned output_bins, const cucomplex **spectra,
+extractorConstantPhaseCUDA(unsigned channel_count, unsigned output_bins, cucomplex **spectra,
+                           ExtractedMaximum *maxima, CudaCorrector *correctors) {
+    __shared__ ExtractedMaximum sdata[THREADS_IN_BLOCK];
+    const unsigned int tid = threadIdx.x;
+    sdata[tid].energy = 0.0;
+    sdata[tid].bin_index = 0;
+
+    unsigned offset = blockIdx.x * output_bins;
+    for (unsigned i = tid; i < output_bins; i += THREADS_IN_BLOCK) {
+        // tutaj każdy wątek zbiera po wszystkich elementach którymi ma się zająć
+        cucomplex direction = make_cuDoubleComplex(0, 0);
+        for (unsigned c = 0; c < channel_count; ++c) {
+            direction = cuCfma(spectra[c][offset + i], spectra[c][offset + i], direction);
+        }
+        double angle = 0.5 * atan2(cuCimag(direction), cuCreal(direction));
+        double sin_angle, cos_angle;
+        sincos(angle, &sin_angle, &cos_angle);
+        auto corrector_result = correctors[i].compute(make_cuDoubleComplex(cos_angle, sin_angle));
+
+        double energy = 0;
+        for (unsigned c = 0; c < channel_count; ++c) {
+            const cucomplex v = spectra[c][offset + i];
+            double cos_factor = cos(atan2(cuCimag(v), cuCreal(v)) - angle);
+            energy += (cuCreal(v) * cuCreal(v) + cuCimag(v) * cuCimag(v)) * cos_factor * cos_factor;
+        }
+        energy *= corrector_result.energy();
+        if (energy > sdata[tid].energy) {
+            sdata[tid].energy = energy;
+            sdata[tid].bin_index = i;
+        }
+    }
+    __syncthreads();
+
+    // tutaj mamy już tylko tyle elementów ile wątków
+    if (THREADS_IN_BLOCK >= 512) {
+        if (tid < 256) oneReduce(sdata[tid], sdata[tid + 256]);
+        __syncthreads();
+    }
+    if (THREADS_IN_BLOCK >= 256) {
+        if (tid < 128) oneReduce(sdata[tid], sdata[tid + 128]);
+        __syncthreads();
+    }
+    if (THREADS_IN_BLOCK >= 128) {
+        if (tid < 64) oneReduce(sdata[tid], sdata[tid + 64]);
+        __syncthreads();
+    }
+    if (tid < 32) warpReduce<THREADS_IN_BLOCK>(sdata, tid);
+    if (tid == 0) {
+        maxima[blockIdx.x].bin_index = sdata[0].bin_index;
+        maxima[blockIdx.x].energy = sdata[0].energy;
+    }
+}
+
+template<unsigned THREADS_IN_BLOCK>
+static __global__ void
+extractorVariablePhaseCUDA(unsigned channel_count, unsigned output_bins, cucomplex **spectra,
                            ExtractedMaximum *maxima, CudaCorrector *correctors) {
     __shared__ ExtractedMaximum sdata[THREADS_IN_BLOCK];
     const unsigned int tid = threadIdx.x;
@@ -184,12 +243,15 @@ extractorVariablePhaseCUDA(unsigned channel_count, unsigned output_bins, const c
     }
 }
 
-void callExtractorKernel(const SpectrogramRequest &request, cudaStream_t stream, const cucomplex **spectra,
+void callExtractorKernel(const SpectrogramRequest &request, cudaStream_t stream, cucomplex **spectra,
                          ExtractedMaximum *maxima, Corrector *correctors) {
     const unsigned threads_in_block = 64;
     if (request.extractor == extractorVariablePhase) {
         extractorVariablePhaseCUDA<threads_in_block><<<request.how_many, threads_in_block, 0, stream>>>
-                (request.channel_count, request.output_bins, spectra, maxima, reinterpret_cast<CudaCorrector *>(correctors));
+        (request.channel_count, request.output_bins, spectra, maxima, reinterpret_cast<CudaCorrector *>(correctors));
+    } else if (request.extractor == extractorConstantPhase) {
+        extractorConstantPhaseCUDA<threads_in_block><<<request.how_many, threads_in_block, 0, stream>>>
+        (request.channel_count, request.output_bins, spectra, maxima, reinterpret_cast<CudaCorrector *>(correctors));
     } else if (request.extractor == extractorSingleChannel) {
         extractorSingleChannelCUDA<threads_in_block><<<request.how_many, threads_in_block, 0, stream>>>
                 (request.channel_count, request.output_bins, spectra, maxima, reinterpret_cast<CudaCorrector *>(correctors));
@@ -271,7 +333,7 @@ class CudaTask {
             }
             cufft_check(cufftExecD2Z(handle, dev_input.get(), outputs[c]));
         }
-        callExtractorKernel(request, stream.get(), const_cast<const cucomplex **>(dev_outputs.get()), dev_maxima.get(), dev_correctors.get());
+        callExtractorKernel(request, stream.get(), dev_outputs.get(), dev_maxima.get(), dev_correctors.get());
         cuda_check(cudaMemcpyAsync(request.maxima, dev_maxima.get(), request.how_many * sizeof(ExtractedMaximum),
                                    cudaMemcpyDeviceToHost, stream.get()));
     }

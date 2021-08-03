@@ -53,7 +53,7 @@ public:
      *
      * @return smart pointer to a newly created BlockExtendedAtom
      */
-    ExtendedAtomPointer extend() final;
+    ExtendedAtomPointer extend() const final;
 };
 
 /**
