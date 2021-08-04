@@ -85,26 +85,39 @@ ExtractedMaximum extractorConstantPhase(int channel_count, int output_bins, comp
         for (int c = 0; c < channel_count; ++c) {
             direction += channels[c][i] * channels[c][i];
         }
-        double angle = 0.5 * std::arg(direction); // result in range ±π/2
-        auto corrector_result = correctors[i].compute(std::polar(1.0, angle));
+        double abs_direction = std::abs(direction);
+        complex best_direction = (abs_direction > 0) ? std::sqrt(direction / abs_direction) : 1.0;
+        auto corrector_result = correctors[i].compute(best_direction);
+        double energy_correction = corrector_result.energy();
+
         double energy = 0.0;
         for (int c = 0; c < channel_count; ++c) {
-            double cos_factor = std::cos(std::arg(channels[c][i]) - angle);
-            energy += std::norm(channels[c][i]) * cos_factor * cos_factor;
+            double norm_channel = std::norm(channels[c][i]);
+            if (norm_channel > 0) {
+                double cos_factor = (channels[c][i].real() * best_direction.real() + channels[c][i].imag() * best_direction.imag())
+                                    / std::sqrt(norm_channel);
+                energy += norm_channel * cos_factor * cos_factor;
+            }
         }
-        energy *= corrector_result.energy();
+        energy *= energy_correction;
+
         if (energy > max_energy) {
             max_energy = energy;
             i_max = i;
             if (extra_data) {
+                const double amplitude_correction = corrector_result.amplitude();
+                const double best_phase = corrector_result.phase();
                 for (int c = 0; c < channel_count; ++c) {
-                    double cos_factor = std::cos(std::arg(channels[c][i]) - angle);
-                    extra_data[c].energy = std::norm(channels[c][i]) * cos_factor * cos_factor * corrector_result.energy();
-                    extra_data[c].phase = corrector_result.phase();
-                    extra_data[c].amplitude = std::abs(channels[c][i]) * cos_factor * corrector_result.amplitude();
-                    if (extra_data[c].amplitude < 0) {
-                        extra_data[c].phase += (extra_data[c].phase < 0) ? 2*M_PI : -2*M_PI;
-                        extra_data[c].amplitude = -extra_data[c].amplitude;
+                    double norm_channel = std::norm(channels[c][i]);
+                    double abs_channel = std::sqrt(norm_channel);
+                    extra_data[c].energy = norm_channel * energy_correction;
+                    extra_data[c].phase = best_phase;
+                    extra_data[c].amplitude = abs_channel * amplitude_correction;
+                    if (abs_channel > 0) {
+                        double cos_factor =
+                                (channels[c][i].real() * best_direction.real() + channels[c][i].imag() * best_direction.imag()) / abs_channel;
+                        extra_data[c].energy *= cos_factor * cos_factor;
+                        extra_data[c].amplitude *= cos_factor;
                     }
                 }
             }

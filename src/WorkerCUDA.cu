@@ -144,6 +144,26 @@ extractorSingleChannelCUDA(unsigned channel_count, unsigned output_bins, cucompl
     }
 }
 
+/**
+ * @param z must be of amplitude 1
+ * @return square root of z
+ */
+static __device__ cucomplex cuCsqrtUnit(cucomplex z) {
+    const double abs_z_plus_r = hypot(cuCreal(z) + 1.0, cuCimag(z));
+    if (abs_z_plus_r > 1.0e-12) {
+        const double scale = 1.0 / abs_z_plus_r;
+        return make_cuDoubleComplex(scale * (cuCreal(z) + 1.0), scale * cuCimag(z));
+    } else {
+        // z is equal to -1
+        return make_cuDoubleComplex(0.0, 1.0);
+    }
+}
+
+static inline __device__ double cuCnorm(cucomplex z) {
+    const double real = cuCreal(z), imag = cuCimag(z);
+    return real * real + imag * imag;
+}
+
 template<unsigned THREADS_IN_BLOCK>
 static __global__ void
 extractorConstantPhaseCUDA(unsigned channel_count, unsigned output_bins, cucomplex **spectra,
@@ -160,18 +180,24 @@ extractorConstantPhaseCUDA(unsigned channel_count, unsigned output_bins, cucompl
         for (unsigned c = 0; c < channel_count; ++c) {
             direction = cuCfma(spectra[c][offset + i], spectra[c][offset + i], direction);
         }
-        double angle = 0.5 * atan2(cuCimag(direction), cuCreal(direction));
-        double sin_angle, cos_angle;
-        sincos(angle, &sin_angle, &cos_angle);
-        auto corrector_result = correctors[i].compute(make_cuDoubleComplex(cos_angle, sin_angle));
+        double abs_direction = cuCabs(direction);
+        cucomplex best_direction = (abs_direction > 0)
+                                   ? cuCsqrtUnit(make_cuDoubleComplex(cuCreal(direction) / abs_direction, cuCimag(direction) / abs_direction))
+                                   : make_cuDoubleComplex(1.0, 0.0);
+        auto corrector_result = correctors[i].compute(best_direction);
 
         double energy = 0;
         for (unsigned c = 0; c < channel_count; ++c) {
             const cucomplex v = spectra[c][offset + i];
-            double cos_factor = cos(atan2(cuCimag(v), cuCreal(v)) - angle);
-            energy += (cuCreal(v) * cuCreal(v) + cuCimag(v) * cuCimag(v)) * cos_factor * cos_factor;
+            double norm_channel = cuCnorm(v);
+            if (norm_channel > 0) {
+                double cos_factor = (cuCreal(v) * cuCreal(best_direction) + cuCimag(v) * cuCimag(best_direction))
+                                    / sqrt(norm_channel);
+                energy += norm_channel * cos_factor * cos_factor;
+            }
         }
         energy *= corrector_result.energy();
+
         if (energy > sdata[tid].energy) {
             sdata[tid].energy = energy;
             sdata[tid].bin_index = i;
@@ -248,10 +274,10 @@ void callExtractorKernel(const SpectrogramRequest &request, cudaStream_t stream,
     const unsigned threads_in_block = 64;
     if (request.extractor == extractorVariablePhase) {
         extractorVariablePhaseCUDA<threads_in_block><<<request.how_many, threads_in_block, 0, stream>>>
-        (request.channel_count, request.output_bins, spectra, maxima, reinterpret_cast<CudaCorrector *>(correctors));
+                (request.channel_count, request.output_bins, spectra, maxima, reinterpret_cast<CudaCorrector *>(correctors));
     } else if (request.extractor == extractorConstantPhase) {
         extractorConstantPhaseCUDA<threads_in_block><<<request.how_many, threads_in_block, 0, stream>>>
-        (request.channel_count, request.output_bins, spectra, maxima, reinterpret_cast<CudaCorrector *>(correctors));
+                (request.channel_count, request.output_bins, spectra, maxima, reinterpret_cast<CudaCorrector *>(correctors));
     } else if (request.extractor == extractorSingleChannel) {
         extractorSingleChannelCUDA<threads_in_block><<<request.how_many, threads_in_block, 0, stream>>>
                 (request.channel_count, request.output_bins, spectra, maxima, reinterpret_cast<CudaCorrector *>(correctors));
