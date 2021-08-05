@@ -1,13 +1,16 @@
+/**********************************************************
+ * Piotr T. Różański (c) 2015-2021                        *
+ *   Enhanced Matching Pursuit Implementation (empi)      *
+ * See README.md and LICENCE for details.                 *
+ **********************************************************/
 #include <cstdio>
-#include <err.h>
+#include "Testing.h"
 #include "Types.h"
 
 template<typename T>
 void assert_equals(double input, T expected, T (*fun)(double)) {
     T actual = fun(input);
-    if (actual != expected) {
-        errx(EXIT_FAILURE, "mismatch for input=%lf", input);
-    }
+    ASSERT_EQUALS(expected, actual);
 }
 
 template<typename T>

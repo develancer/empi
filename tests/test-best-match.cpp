@@ -1,6 +1,9 @@
-#include <cassert>
+/**********************************************************
+ * Piotr T. Różański (c) 2015-2021                        *
+ *   Enhanced Matching Pursuit Implementation (empi)      *
+ * See README.md and LICENCE for details.                 *
+ **********************************************************/
 #include <cstdio>
-
 #include "Array.h"
 #include "BlockAtom.h"
 #include "BlockDictionary.h"
@@ -8,11 +11,11 @@
 #include "Family.h"
 #include "WorkerFFTW.h"
 #include "SpectrogramRequest.h"
+#include "Testing.h"
 
 const int N = 300;
 
-void test(WorkerFFTW& calculator, double frequency, int position, double scale, double phase0, double phase1, double amplitude0, double amplitude1)
-{
+void test(WorkerFFTW &calculator, double frequency, int position, double scale, double phase0, double phase1, double amplitude0, double amplitude1) {
     std::shared_ptr<GaussianFamily> family = std::make_shared<GaussianFamily>();
     index_t envelope_offset;
     index_t envelope_length = family->size_for_values(position, scale, nullptr);
@@ -24,7 +27,7 @@ void test(WorkerFFTW& calculator, double frequency, int position, double scale, 
 
     double energies[2];
     energies[0] = energies[1] = 0.0;
-    for (int i=0; i<N; ++i) {
+    for (int i = 0; i < N; ++i) {
         // a single dual-channel Gabor atom with specified phases and amplitudes
         const int io = i - envelope_offset;
         const double v = (io >= 0 && io < envelope_length) ? envelope[io] / value_max : 0.0;
@@ -39,31 +42,31 @@ void test(WorkerFFTW& calculator, double frequency, int position, double scale, 
 
     std::list<SpectrogramRequest> requests;
     dictionary.fetch_requests({0, N}, requests);
-    for (const auto& request : requests) {
+    for (const auto &request : requests) {
         calculator.compute(request);
         request.interface->notify();
     }
 
     BasicAtomPointer atom = dictionary.get_best_match();
-    assert(atom);
+    ASSERT(atom);
 
-    const BlockAtom& block_atom = static_cast<BlockAtom&>(*atom);
+    const BlockAtom &block_atom = static_cast<BlockAtom &>(*atom);
 
-    assert(std::abs(block_atom.scale - scale) < 1.0e-10);
-    assert(std::abs(block_atom.frequency - frequency) < 1.0e-10);
-    assert(std::abs(block_atom.position - position) < 1.0e-10);
-    assert(std::abs(block_atom.get_energy() - (energies[0]+energies[1])) < 1.0e-10);
+    ASSERT_NEAR_ZERO(block_atom.scale - scale);
+    ASSERT_NEAR_ZERO(block_atom.frequency - frequency);
+    ASSERT_NEAR_ZERO(block_atom.position - position);
+    ASSERT_NEAR_ZERO(block_atom.get_energy() - (energies[0] + energies[1]));
 }
 
 int main() {
-    WorkerFFTW fftw(2, {256 });
+    WorkerFFTW fftw(2, {256});
 
     test(fftw,
-         9.0/256, 144, 10,
+         9.0 / 256, 144, 10,
          0.71529, 0.92517,
          1.5, 2.5);
     test(fftw,
-         119.0/256, 148, 10,
+         119.0 / 256, 148, 10,
          0.71529, 0.92517,
          1.5, 2.5);
     test(fftw,

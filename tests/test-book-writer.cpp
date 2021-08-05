@@ -1,12 +1,16 @@
-#include <cassert>
+/**********************************************************
+ * Piotr T. Różański (c) 2015-2021                        *
+ *   Enhanced Matching Pursuit Implementation (empi)      *
+ * See README.md and LICENCE for details.                 *
+ **********************************************************/
 #include <cstdio>
 #include <cstring>
-
 #include "BookWriter.h"
+#include "Testing.h"
 
-const char* const tmp_name = ".test-book-writer.tmp";
+const char *const tmp_name = ".test-book-writer.tmp";
 
-const char* const expected = "{\n\
+const char *const expected = "{\n\
 \"channel_count\": 2,\n\
 \"sampling_frequency_Hz\": 16,\n\
 \"segments\": [{\n\
@@ -79,9 +83,9 @@ void test_json_writer() {
 
     size_t length = strlen(expected);
     char buffer[length];
-    FILE* f = fopen(tmp_name, "rb");
-    assert(fread(buffer, 1, length, f) == length);
-    assert(!memcmp(buffer, expected, length));
+    FILE *f = fopen(tmp_name, "rb");
+    ASSERT_EQUALS(length, fread(buffer, 1, length, f));
+    ASSERT(!memcmp(buffer, expected, length));
     fclose(f);
 }
 

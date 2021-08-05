@@ -1,14 +1,18 @@
-#include <cassert>
+/**********************************************************
+ * Piotr T. Różański (c) 2015-2021                        *
+ *   Enhanced Matching Pursuit Implementation (empi)      *
+ * See README.md and LICENCE for details.                 *
+ **********************************************************/
 #include <cstdio>
-
 #include "SignalReader.h"
+#include "Testing.h"
 
-const char* const tmp_name = ".test-signal-reader.tmp";
+const char *const tmp_name = ".test-signal-reader.tmp";
 
 void prepare_signal(int total_sample_count) {
-    FILE* file = fopen(tmp_name, "w+b");
+    FILE *file = fopen(tmp_name, "w+b");
     float data[total_sample_count];
-    for (int i=0; i<total_sample_count; ++i) {
+    for (int i = 0; i < total_sample_count; ++i) {
         data[i] = static_cast<float>(i);
     }
     fwrite(data, sizeof(float), total_sample_count, file);
@@ -21,12 +25,12 @@ void test_empty_file_all_epochs() {
     std::vector<int> selected_channels = {1, 2};
     SignalReaderForAllEpochs reader(tmp_name, 3, std::move(selected_channels), 8);
 
-    assert(reader.get_epoch_channel_count() == 2);
-    assert(reader.get_epoch_sample_count() == 8);
+    ASSERT_EQUALS(2, reader.get_epoch_channel_count());
+    ASSERT_EQUALS(8, reader.get_epoch_sample_count());
 
     Array2D<double> buffer(2, 8);
     auto result = reader.read(buffer);
-    assert(!result);
+    ASSERT(!result);
 }
 
 void test_empty_file_whole_signal() {
@@ -35,12 +39,12 @@ void test_empty_file_whole_signal() {
     std::vector<int> selected_channels = {1, 2};
     SignalReaderForWholeSignal reader(tmp_name, 3, std::move(selected_channels));
 
-    assert(reader.get_epoch_channel_count() == 2);
-    assert(reader.get_epoch_sample_count() == 0);
+    ASSERT_EQUALS(2, reader.get_epoch_channel_count());
+    ASSERT_EQUALS(0, reader.get_epoch_sample_count());
 
     Array2D<double> buffer(2, 0);
     auto result = reader.read(buffer);
-    assert(!result);
+    ASSERT(!result);
 }
 
 void test_all_epochs() {
@@ -49,32 +53,32 @@ void test_all_epochs() {
     std::vector<int> selected_channels = {1, 2};
     SignalReaderForAllEpochs reader(tmp_name, 3, std::move(selected_channels), 8);
 
-    assert(reader.get_epoch_channel_count() == 2);
-    assert(reader.get_epoch_sample_count() == 8);
+    ASSERT_EQUALS(2, reader.get_epoch_channel_count());
+    ASSERT_EQUALS(8, reader.get_epoch_sample_count());
 
     Array2D<double> buffer(2, 8);
     auto result = reader.read(buffer);
-    assert(result);
-    assert(result->channel_offset == 0);
-    assert(result->epoch == 0);
-    for (int i=0; i<8; ++i) {
-        assert(buffer[0][i] == 3*i);
-        assert(buffer[1][i] == 3*i+1);
+    ASSERT(result);
+    ASSERT_EQUALS(0, result->channel_offset);
+    ASSERT_EQUALS(0, result->epoch);
+    for (int i = 0; i < 8; ++i) {
+        ASSERT_EQUALS(3 * i, buffer[0][i]);
+        ASSERT_EQUALS(3 * i + 1, buffer[1][i]);
     }
     result = reader.read(buffer);
-    assert(result);
-    assert(result->channel_offset == 0);
-    assert(result->epoch == 1);
-    for (int i=0; i<4; ++i) {
-        assert(buffer[0][i] == 3*(i+8));
-        assert(buffer[1][i] == 3*(i+8)+1);
+    ASSERT(result);
+    ASSERT_EQUALS(0, result->channel_offset);
+    ASSERT_EQUALS(1, result->epoch);
+    for (int i = 0; i < 4; ++i) {
+        ASSERT_EQUALS(3 * (i + 8), buffer[0][i]);
+        ASSERT_EQUALS(3 * (i + 8) + 1, buffer[1][i]);
     }
-    for (int i=4; i<8; ++i) {
-        assert(buffer[0][i] == 0);
-        assert(buffer[1][i] == 0);
+    for (int i = 4; i < 8; ++i) {
+        ASSERT_EQUALS(0, buffer[0][i]);
+        ASSERT_EQUALS(0, buffer[1][i]);
     }
     result = reader.read(buffer);
-    assert(!result);
+    ASSERT(!result);
 }
 
 void test_whole_signal() {
@@ -83,20 +87,20 @@ void test_whole_signal() {
     std::vector<int> selected_channels = {1, 2};
     SignalReaderForWholeSignal reader(tmp_name, 3, std::move(selected_channels));
 
-    assert(reader.get_epoch_channel_count() == 2);
-    assert(reader.get_epoch_sample_count() == 12);
+    ASSERT_EQUALS(2, reader.get_epoch_channel_count());
+    ASSERT_EQUALS(12, reader.get_epoch_sample_count());
 
     Array2D<double> buffer(2, 12);
     auto result = reader.read(buffer);
-    assert(result);
-    assert(result->channel_offset == 0);
-    assert(result->epoch == 0);
-    for (int i=0; i<12; ++i) {
-        assert(buffer[0][i] == 3*i);
-        assert(buffer[1][i] == 3*i+1);
+    ASSERT(result);
+    ASSERT_EQUALS(0, result->channel_offset);
+    ASSERT_EQUALS(0, result->epoch);
+    for (int i = 0; i < 12; ++i) {
+        ASSERT_EQUALS(3 * i, buffer[0][i]);
+        ASSERT_EQUALS(3 * i + 1, buffer[1][i]);
     }
     result = reader.read(buffer);
-    assert(!result);
+    ASSERT(!result);
 }
 
 int main() {

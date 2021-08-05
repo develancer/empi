@@ -1,6 +1,11 @@
+/**********************************************************
+ * Piotr T. Różański (c) 2015-2021                        *
+ *   Enhanced Matching Pursuit Implementation (empi)      *
+ * See README.md and LICENCE for details.                 *
+ **********************************************************/
 #include <random>
-
 #include "Array.h"
+#include "Testing.h"
 #include "WorkerDummy.h"
 #include "WorkerFFTW.h"
 
@@ -14,11 +19,11 @@ void benchmark(Worker &calculator, const SpectrogramRequest &request, const Extr
     if (reference_maxima) {
         double max_diff = 0;
         for (int i = 0; i < request.how_many; ++i) {
-            assert(request.maxima[i].bin_index == reference_maxima[i].bin_index);
+            ASSERT_EQUALS(reference_maxima[i].bin_index, request.maxima[i].bin_index);
             max_diff = std::max(max_diff, std::abs(request.maxima[i].energy - reference_maxima[i].energy));
         }
-        assert(max_diff > 0);
-        assert(max_diff < 1.0e-10);
+        ASSERT(max_diff > 0);
+        ASSERT_NEAR_ZERO(max_diff);
     }
 }
 

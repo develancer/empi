@@ -1,10 +1,14 @@
-#include <cassert>
+/**********************************************************
+ * Piotr T. Różański (c) 2015-2021                        *
+ *   Enhanced Matching Pursuit Implementation (empi)      *
+ * See README.md and LICENCE for details.                 *
+ **********************************************************/
 #include <cstdio>
-
 #include "Array.h"
 #include "BlockAtom.h"
 #include "BlockDictionary.h"
 #include "Family.h"
+#include "Testing.h"
 
 double compute_residual(PinnedArray2D<double> &original_data, const BlockExtendedAtom &atom, const std::shared_ptr<Family> &family) {
     PinnedArray2D<double> data(original_data.height(), original_data.length());
@@ -50,44 +54,44 @@ void test_constant_phase(double frequency, double position, double scale, double
     block_atom.scale = scale;
 
     std::shared_ptr<BlockExtendedAtom> extended = std::dynamic_pointer_cast<BlockExtendedAtom>(block_atom.extend());
-    assert(extended);
-    assert(extended->extra.length() == 2);
+    ASSERT(extended);
+    ASSERT_EQUALS(2, extended->extra.length());
 
     double original_residual = compute_residual(data, *extended, family);
-    assert(std::abs(original_residual - 2.5) < 1.0e-10);
+    ASSERT_NEAR_ZERO(original_residual - 2.5);
 
     extended->scale += 0.01;
-    assert(compute_residual(data, *extended, family) > original_residual);
+    ASSERT(compute_residual(data, *extended, family) > original_residual);
     extended->scale -= 0.02;
-    assert(compute_residual(data, *extended, family) > original_residual);
+    ASSERT(compute_residual(data, *extended, family) > original_residual);
     extended->scale += 0.01;
 
     extended->frequency += 0.01;
-    assert(compute_residual(data, *extended, family) > original_residual);
+    ASSERT(compute_residual(data, *extended, family) > original_residual);
     extended->frequency -= 0.02;
-    assert(compute_residual(data, *extended, family) > original_residual);
+    ASSERT(compute_residual(data, *extended, family) > original_residual);
     extended->frequency += 0.01;
 
     extended->position += 1.0;
-    assert(compute_residual(data, *extended, family) > original_residual);
+    ASSERT(compute_residual(data, *extended, family) > original_residual);
     extended->position -= 2.0;
-    assert(compute_residual(data, *extended, family) > original_residual);
+    ASSERT(compute_residual(data, *extended, family) > original_residual);
     extended->position += 1.0;
 
     for (int c = 0; c < 2; ++c) {
         extended->extra[0].amplitude += 0.01;
-        assert(compute_residual(data, *extended, family) > original_residual);
+        ASSERT(compute_residual(data, *extended, family) > original_residual);
         extended->extra[0].amplitude -= 0.02;
-        assert(compute_residual(data, *extended, family) > original_residual);
+        ASSERT(compute_residual(data, *extended, family) > original_residual);
         extended->extra[0].amplitude += 0.01;
     }
 
     extended->extra[0].phase += 0.01;
     extended->extra[1].phase += 0.01;
-    assert(compute_residual(data, *extended, family) > original_residual);
+    ASSERT(compute_residual(data, *extended, family) > original_residual);
     extended->extra[0].phase -= 0.02;
     extended->extra[1].phase -= 0.02;
-    assert(compute_residual(data, *extended, family) > original_residual);
+    ASSERT(compute_residual(data, *extended, family) > original_residual);
     extended->extra[0].phase += 0.01;
     extended->extra[1].phase += 0.01;
 }
@@ -119,24 +123,24 @@ void test_variable_phase(double frequency, double position, double scale, double
     block_atom.scale = scale;
 
     std::shared_ptr<BlockExtendedAtom> extended = std::dynamic_pointer_cast<BlockExtendedAtom>(block_atom.extend());
-    assert(extended);
-    assert(extended->extra.length() == 2);
+    ASSERT(extended);
+    ASSERT_EQUALS(2, extended->extra.length());
 
-    assert(std::fmod(std::abs(extended->extra[0].phase - phase0), 2 * M_PI) < 1.0e-10);
-    assert(std::fmod(std::abs(extended->extra[1].phase - phase1), 2 * M_PI) < 1.0e-10);
+    ASSERT_NEAR_ZERO(std::fmod(std::abs(extended->extra[0].phase - phase0), 2 * M_PI));
+    ASSERT_NEAR_ZERO(std::fmod(std::abs(extended->extra[1].phase - phase1), 2 * M_PI));
 
-    assert(std::abs(extended->extra[0].amplitude - amplitude0) < 1.0e-10);
-    assert(std::abs(extended->extra[1].amplitude - amplitude1) < 1.0e-10);
+    ASSERT_NEAR_ZERO(extended->extra[0].amplitude - amplitude0);
+    ASSERT_NEAR_ZERO(extended->extra[1].amplitude - amplitude1);
 
-    assert(std::abs(extended->extra[0].energy - energies[0]) < 1.0e-10);
-    assert(std::abs(extended->extra[1].energy - energies[1]) < 1.0e-10);
+    ASSERT_NEAR_ZERO(extended->extra[0].energy - energies[0]);
+    ASSERT_NEAR_ZERO(extended->extra[1].energy - energies[1]);
 
     BlockDictionary dictionary(data, family);
     dictionary.subtract_from_signal(*extended);
 
     for (int c = 0; c < 2; ++c) {
         for (int i = 0; i < 100; ++i) {
-            assert(std::abs(data[c][i]) < 1.0e-10);
+            ASSERT_NEAR_ZERO(data[c][i]);
         }
     }
 }

@@ -1,17 +1,20 @@
-#include <cassert>
+/**********************************************************
+ * Piotr T. Różański (c) 2015-2021                        *
+ *   Enhanced Matching Pursuit Implementation (empi)      *
+ * See README.md and LICENCE for details.                 *
+ **********************************************************/
 #include <cstdio>
 #include <utility>
+#include "Testing.h"
 
-class Item
-{
+class Item {
 public:
     static int copy_called;
     static int copy_ctor_called;
     static int ctor_called;
     static int move_ctor_called;
 
-    static void reset()
-    {
+    static void reset() {
         copy_called = copy_ctor_called = ctor_called = move_ctor_called = 0;
     }
 
@@ -19,15 +22,15 @@ public:
         ++ctor_called;
     }
 
-    Item(const Item&) {
+    Item(const Item &) {
         ++copy_ctor_called;
     }
 
-    Item(Item&&) {
+    Item(Item &&) {
         ++move_ctor_called;
     }
 
-    void operator=(const Item&) {
+    void operator=(const Item &) {
         ++copy_called;
     }
 };
@@ -37,34 +40,29 @@ int Item::copy_ctor_called = 0;
 int Item::ctor_called = 0;
 int Item::move_ctor_called = 0;
 
-class Internal
-{
+class Internal {
     Item item;
 
 public:
-    Internal(Item item) : item(std::move(item))
-    { }
+    Internal(Item item) : item(std::move(item)) {}
 };
 
-class External
-{
+class External {
     Internal internal;
 
 public:
-    External(Item item) : internal(std::move(item))
-    { }
+    External(Item item) : internal(std::move(item)) {}
 };
 
-int main(void)
-{
+int main(void) {
     Item item;
     Item::reset();
 
     External external(std::move(item));
-    assert(Item::copy_called == 0);
-    assert(Item::copy_ctor_called == 0);
-    assert(Item::ctor_called == 0);
-    assert(Item::move_ctor_called == 3);
+    ASSERT_EQUALS(0, Item::copy_called);
+    ASSERT_EQUALS(0, Item::copy_ctor_called);
+    ASSERT_EQUALS(0, Item::ctor_called);
+    ASSERT_EQUALS(3, Item::move_ctor_called);
 
     puts("OK");
 }

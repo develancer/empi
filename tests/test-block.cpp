@@ -1,15 +1,17 @@
-#include <cassert>
+/**********************************************************
+ * Piotr T. Różański (c) 2015-2021                        *
+ *   Enhanced Matching Pursuit Implementation (empi)      *
+ * See README.md and LICENCE for details.                 *
+ **********************************************************/
 #include <cstdio>
-
-#include "Array.h"
 #include "Block.h"
 #include "Corrector.h"
 #include "Extractor.h"
 #include "SpectrogramRequest.h"
+#include "Testing.h"
 #include "Types.h"
 
-ExtractedMaximum extractorForTest(int, int, complex *const *, const Corrector *, double *, ExtraData *)
-{
+ExtractedMaximum extractorForTest(int, int, complex *const *, const Corrector *, double *, ExtraData *) {
     return ExtractedMaximum();
 }
 
@@ -21,34 +23,34 @@ int main() {
     Block block(data, nullptr, envelope, correctors, 256, 30, extractorForTest);
 
     SpectrogramRequest request = block.buildRequest(0, 300);
-    assert(request.data == data.get());
-    assert(request.channel_length == 300);
-    assert(request.channel_count == 10);
-    assert(request.input_offset == -64); // half of envelope
-    assert(request.input_shift == 30);
-    assert(request.how_many == 10); // centered at: 0, 30, 60, 90, 120, 150, 180, 210, 240 and 270
-    assert(request.envelope == envelope.get());
-    assert(request.envelope_length == 129);
-    assert(request.window_length == 256);
-    assert(request.output_bins == 100);
-    assert(request.correctors == correctors.get());
-    assert(request.extractor == extractorForTest);
+    ASSERT_EQUALS(data.get(), request.data);
+    ASSERT_EQUALS(300, request.channel_length);
+    ASSERT_EQUALS(10, request.channel_count);
+    ASSERT_EQUALS(-64, request.input_offset); // half of envelope
+    ASSERT_EQUALS(30, request.input_shift);
+    ASSERT_EQUALS(10, request.how_many); // centered at: 0, 30, 60, 90, 120, 150, 180, 210, 240 and 270
+    ASSERT_EQUALS(envelope.get(), request.envelope);
+    ASSERT_EQUALS(129, request.envelope_length);
+    ASSERT_EQUALS(256, request.window_length);
+    ASSERT_EQUALS(100, request.output_bins);
+    ASSERT_EQUALS(correctors.get(), request.correctors);
+    ASSERT_EQUALS(extractorForTest, request.extractor);
 
     request = block.buildRequest(64, 300);
-    assert(request.input_offset == -64); // half of envelope
-    assert(request.how_many == 10); // still the same
+    ASSERT_EQUALS(-64, request.input_offset); // half of envelope
+    ASSERT_EQUALS(10, request.how_many); // still the same
 
     request = block.buildRequest(65, 300);
-    assert(request.input_offset == -34); // just got outside the first envelope [-64..64]
-    assert(request.how_many == 9); // one less
+    ASSERT_EQUALS(-34, request.input_offset); // just got outside the first envelope [-64..64]
+    ASSERT_EQUALS(9, request.how_many); // one less
 
     request = block.buildRequest(65, 206);
-    assert(request.input_offset == -34);
-    assert(request.how_many == 9); // still the same
+    ASSERT_EQUALS(-34, request.input_offset);
+    ASSERT_EQUALS(9, request.how_many); // still the same
 
     request = block.buildRequest(65, 205);
-    assert(request.input_offset == -34);
-    assert(request.how_many == 8); // got outside the last envelope [206..334]
+    ASSERT_EQUALS(-34, request.input_offset);
+    ASSERT_EQUALS(8, request.how_many); // got outside the last envelope [206..334]
 
     puts("OK");
 }

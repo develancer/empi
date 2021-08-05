@@ -1,8 +1,12 @@
+/**********************************************************
+ * Piotr T. Różański (c) 2015-2021                        *
+ *   Enhanced Matching Pursuit Implementation (empi)      *
+ * See README.md and LICENCE for details.                 *
+ **********************************************************/
 #include <atomic>
-#include <cassert>
 #include <cstdio>
-
 #include "Computer.h"
+#include "Testing.h"
 #include "Worker.h"
 
 class SpectrogramCalculatorForTest : public Worker {
@@ -49,7 +53,7 @@ class DictionaryImplForTest : public Dictionary, public BlockInterface {
 public:
     static std::atomic<int> notify_called_count;
 
-    DictionaryImplForTest(Array2D<double> data) : data_(std::move(data))  { }
+    DictionaryImplForTest(Array2D<double> data) : data_(std::move(data)) {}
 
     size_t get_atom_count() final {
         return 1; // does not matter, really
@@ -57,15 +61,15 @@ public:
 
     BasicAtomPointer get_best_match() final {
         double max_energy = 0;
-        for (const auto& maximum : maxima) {
+        for (const auto &maximum : maxima) {
             max_energy = std::max(max_energy, maximum.energy);
         }
         return std::make_shared<BasicAtomForTest>(data_, max_energy);
     }
 
-    void fetch_requests(IndexRange signal_range, std::list<SpectrogramRequest>& requests) final {
-        assert(signal_range.first_index == 0);
-        assert(signal_range.end_index == 55);
+    void fetch_requests(IndexRange signal_range, std::list<SpectrogramRequest> &requests) final {
+        ASSERT_EQUALS(0, signal_range.first_index);
+        ASSERT_EQUALS(55, signal_range.end_index);
         for (int r = 0; r < R; ++r) {
             SpectrogramRequest request;
             request.how_many = r + 1;
@@ -78,11 +82,11 @@ public:
         }
     }
 
-    void fetch_proto_requests(std::list<ProtoRequest>&) final {
+    void fetch_proto_requests(std::list<ProtoRequest> &) final {
         // nothing here
     }
 
-    IndexRange subtract_from_signal(const ExtendedAtom&) final {
+    IndexRange subtract_from_signal(const ExtendedAtom &) final {
         return {0, 0};
     }
 
@@ -103,7 +107,7 @@ int main() {
         computer.add_calculator(std::make_unique<SpectrogramCalculatorForTest>());
     }
     ExtendedAtomPointer atom = computer.get_next_atom();
-    assert(atom->get_energy() == 10.0 * (R-1));
-    assert(DictionaryImplForTest::notify_called_count == R);
+    ASSERT_EQUALS(10.0 * (R - 1), atom->get_energy());
+    ASSERT_EQUALS(R, DictionaryImplForTest::notify_called_count);
     puts("OK");
 }
