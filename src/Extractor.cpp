@@ -77,7 +77,7 @@ ExtractedMaximum extractorVariablePhase(int channel_count, int output_bins, comp
 }
 
 ExtractedMaximum extractorConstantPhase(int channel_count, int output_bins, complex *const *channels, const Corrector *correctors,
-                                        double *bins_buffer, ExtraData *extra_data) {
+                                        double *, ExtraData *extra_data) {
     double max_energy = std::numeric_limits<double>::lowest();
     int i_max = 0;
     for (int i = 0; i < output_bins; ++i) {
@@ -116,6 +116,10 @@ ExtractedMaximum extractorConstantPhase(int channel_count, int output_bins, comp
                     if (abs_channel > 0) {
                         double cos_factor =
                                 (channels[c][i].real() * best_direction.real() + channels[c][i].imag() * best_direction.imag()) / abs_channel;
+                        if (cos_factor < 0) {
+                            cos_factor = -cos_factor;
+                            extra_data[c].phase += (extra_data[c].phase < 0) ? M_PI : -M_PI;
+                        }
                         extra_data[c].energy *= cos_factor * cos_factor;
                         extra_data[c].amplitude *= cos_factor;
                     }
