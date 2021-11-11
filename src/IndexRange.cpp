@@ -18,6 +18,10 @@ IndexRange IndexRange::overlap(const IndexRange &other) const {
     }
 }
 
+bool IndexRange::includes(index_t index) const {
+    return first_index <= index && index < end_index;
+}
+
 bool IndexRange::operator!() const {
     return first_index >= end_index;
 }

@@ -20,18 +20,12 @@ ExtractedMaximum extractorSingleChannel(int channel_count, int output_bins, comp
             i_max = i;
         }
     }
-    double energy_guess = correctors[i_max].compute(channels[0][i_max]).energy();
+    double energy_guess = correctors[i_max].compute(channels[0][i_max]);
     bins_buffer[i_max] = energy_guess;
     ExtractedMaximum max{energy_guess, i_max};
     for (int i = 0; i < output_bins; ++i)
         if (bins_buffer[i] >= max.energy) {
-            CorrectorResult result = correctors[i].compute(channel[i]);
-            double energy = result.energy();
-            if (extra_data) {
-                extra_data[0].amplitude = result.amplitude();
-                extra_data[0].energy = energy;
-                extra_data[0].phase = result.phase();
-            }
+            double energy = correctors[i].compute(channel[i], extra_data);
             max = std::max(max, ExtractedMaximum{energy, i});
         }
     return max;
@@ -54,7 +48,7 @@ ExtractedMaximum extractorVariablePhase(int channel_count, int output_bins, comp
     }
     double energy_guess = 0;
     for (int c = 0; c < channel_count; ++c) {
-        energy_guess += correctors[i_max].compute(channels[c][i_max]).energy();
+        energy_guess += correctors[i_max].compute(channels[c][i_max]);
     }
     bins_buffer[i_max] = energy_guess;
     ExtractedMaximum max{energy_guess, i_max};
@@ -62,14 +56,8 @@ ExtractedMaximum extractorVariablePhase(int channel_count, int output_bins, comp
         if (bins_buffer[i] >= max.energy) {
             double energy = 0;
             for (int c = 0; c < channel_count; ++c) {
-                CorrectorResult result = correctors[i].compute(channels[c][i]);
-                double channel_energy = result.energy();
+                double channel_energy = correctors[i].compute(channels[c][i], extra_data ? &extra_data[c] : nullptr);
                 energy += channel_energy;
-                if (extra_data) {
-                    extra_data[c].amplitude = result.amplitude();
-                    extra_data[c].energy = channel_energy;
-                    extra_data[c].phase = result.phase();
-                }
             }
             max = std::max(max, ExtractedMaximum{energy, i});
         }
@@ -87,8 +75,7 @@ ExtractedMaximum extractorConstantPhase(int channel_count, int output_bins, comp
         }
         double abs_direction = std::abs(direction);
         complex best_direction = (abs_direction > 0) ? std::sqrt(direction / abs_direction) : 1.0;
-        auto corrector_result = correctors[i].compute(best_direction);
-        double energy_correction = corrector_result.energy();
+        double energy_correction = correctors[i].compute(best_direction);
 
         double energy = 0.0;
         for (int c = 0; c < channel_count; ++c) {
@@ -105,8 +92,9 @@ ExtractedMaximum extractorConstantPhase(int channel_count, int output_bins, comp
             max_energy = energy;
             i_max = i;
             if (extra_data) {
-                const double amplitude_correction = corrector_result.amplitude();
-                const double best_phase = corrector_result.phase();
+                correctors[i].compute(best_direction, &extra_data[0]);
+                const double amplitude_correction = extra_data[0].amplitude;
+                const double best_phase = extra_data[0].phase;
                 for (int c = 0; c < channel_count; ++c) {
                     double norm_channel = std::norm(channels[c][i]);
                     double abs_channel = std::sqrt(norm_channel);

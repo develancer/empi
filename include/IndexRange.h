@@ -47,6 +47,8 @@ struct IndexRange {
      */
     [[nodiscard]] IndexRange overlap(const IndexRange &other) const;
 
+    [[nodiscard]] bool includes(index_t index) const;
+
     /**
      * @return true if range is empty, false otherwise
      */

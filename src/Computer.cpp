@@ -5,7 +5,10 @@
  **********************************************************/
 #include <algorithm>
 #include <thread>
+#include "BlockAtom.h"
 #include "Computer.h"
+#include "ExtenderLoop.h"
+#include "WorkerLoop.h"
 
 static void set_thread_affinity(std::thread &thread, unsigned cpu_index) {
     cpu_set_t cpuset;
@@ -16,48 +19,34 @@ static void set_thread_affinity(std::thread &thread, unsigned cpu_index) {
 
 //////////////////////////////////////////////////////////////////////////////
 
-void Computer::work(Worker *calculator) {
-    SpectrogramRequest request;
-    while (next_cpu(request)) {
-        calculator->compute(request);
-        request.interface->notify();
+Computer::Computer(Array2D<real> data, OptimizationMode mode) : data(std::move(data)), mode(mode) {
+    atom_queue = std::make_shared<TaskQueue<BasicAtomPointer>>();
+    task_queue = std::make_shared<TaskQueue<SpectrogramRequest>>();
+    reset();
+    if (mode == OPTIMIZATION_GLOBAL) {
+        for (unsigned i = 0; i < std::thread::hardware_concurrency(); ++i) {
+            threads.emplace_back(ExtenderLoop(atom_queue));
+            set_thread_affinity(threads.back(), i);
+        }
     }
 }
 
-void Computer::work_gpu(Worker *calculator) {
-    SpectrogramRequest request;
-    while (next_gpu(request)) {
-        calculator->compute(request);
-        request.interface->notify();
+Computer::~Computer() {
+    if (atom_queue) {
+        atom_queue->terminate();
     }
-}
-
-bool Computer::next_cpu(SpectrogramRequest &request) {
-    std::lock_guard lock(requests_mutex);
-    bool result = !requests.empty();
-    if (result) {
-        request = requests.front();
-        requests.pop_front();
+    if (task_queue) {
+        task_queue->terminate();
     }
-    return result;
-}
-
-bool Computer::next_gpu(SpectrogramRequest &request) {
-    std::lock_guard lock(requests_mutex);
-    bool result = !requests.empty();
-    if (result) {
-        request = requests.back();
-        requests.pop_back();
+    for (auto &thread : threads) {
+        thread.join();
     }
-    return result;
 }
 
 void Computer::add_calculator(std::unique_ptr<Worker> calculator, bool prefer_long_fft) {
-    if (prefer_long_fft) {
-        calculators_gpu.push_back(std::move(calculator));
-    } else {
-        calculators_cpu.push_back(std::move(calculator));
-    }
+    static int cpu_index = 0;
+    threads.emplace_back(WorkerLoop(task_queue, std::move(calculator), prefer_long_fft));
+    set_thread_affinity(threads.back(), cpu_index++ % std::thread::hardware_concurrency());
 }
 
 void Computer::add_dictionary(std::unique_ptr<Dictionary> dictionary) {
@@ -65,7 +54,7 @@ void Computer::add_dictionary(std::unique_ptr<Dictionary> dictionary) {
 }
 
 ExtendedAtomPointer Computer::get_next_atom() {
-    assert(requests.empty());
+    std::list<SpectrogramRequest> requests;
     for (auto &dictionary : dictionaries) {
         dictionary->fetch_requests(updated_index_range, requests);
     }
@@ -73,26 +62,13 @@ ExtendedAtomPointer Computer::get_next_atom() {
         return a.window_length < b.window_length;
     });
 
-    std::vector<std::thread> threads;
-    unsigned cpu_index = 0;
-    for (auto &calculator : calculators_cpu) {
-        threads.emplace_back(&Computer::work, this, calculator.get());
-        set_thread_affinity(threads.back(), cpu_index++ % std::thread::hardware_concurrency());
-    }
-    for (auto &calculator : calculators_gpu) {
-        threads.emplace_back(&Computer::work_gpu, this, calculator.get());
-    }
-    for (auto &thread : threads) {
-        thread.join();
-    }
+    task_queue->put(std::move(requests));
 
     BasicAtomPointer best_match;
-    Dictionary *best_dictionary = nullptr;
     for (auto &dictionary : dictionaries) {
         BasicAtomPointer match = dictionary->get_best_match();
         if (match && (!best_match || *best_match < *match)) {
             best_match = match;
-            best_dictionary = dictionary.get();
         }
     }
 
@@ -101,9 +77,24 @@ ExtendedAtomPointer Computer::get_next_atom() {
         return nullptr;
     }
 
-    ExtendedAtomPointer best_atom = best_match->extend();
+    ExtendedAtomPointer best_atom = best_match->extend(mode >= OPTIMIZATION_LOCAL);
     assert(best_atom);
-    updated_index_range = best_dictionary->subtract_from_signal(*best_atom);
+    if (mode >= OPTIMIZATION_GLOBAL) {
+        // we also have to check other candidates
+        std::list<BasicAtomPointer> candidates;
+        for (auto &dictionary : dictionaries) {
+            candidates.splice(candidates.end(), dictionary->get_candidate_matches(best_atom->get_energy()));
+        }
+        atom_queue->put(std::list<BasicAtomPointer>(candidates));
+        for (const auto &candidate : candidates) {
+            ExtendedAtomPointer another_atom = candidate->extend(true);
+            if (another_atom->get_energy() > best_atom->get_energy()) {
+                best_atom = another_atom;
+            }
+        }
+    }
+
+    updated_index_range = best_atom->subtract_from_signal();
     return best_atom;
 }
 

@@ -20,7 +20,8 @@ int main() {
     PinnedArray1D<real> envelope(129);
     PinnedArray1D<Corrector> correctors(100);
 
-    Block block(data, nullptr, envelope, correctors, 256, 30, extractorForTest);
+    auto converter = std::make_shared<BlockAtomParamsConverter>();
+    Block block(data, nullptr, NAN, envelope, correctors, converter, NAN, 256, 30, extractorForTest);
 
     SpectrogramRequest request = block.buildRequest(0, 300);
     ASSERT_EQUALS(data.get(), request.data);

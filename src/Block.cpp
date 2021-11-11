@@ -5,13 +5,22 @@
  **********************************************************/
 #include <algorithm>
 #include "Block.h"
+#include "BlockHelper.h"
 #include "PinnedArray.h"
+#include "SpectrumCalculator.h"
 
 //////////////////////////////////////////////////////////////////////////////
 
-Block::Block(PinnedArray2D<real> data_, std::shared_ptr<Family> family_, PinnedArray1D<double> envelope_, PinnedArray1D<Corrector> correctors_,
+Block::Block(PinnedArray2D<real> data_, std::shared_ptr<Family> family_, double scale, PinnedArray1D<double> envelope_,
+             PinnedArray1D<Corrector> correctors_, std::shared_ptr<BlockAtomParamsConverter> converter_, double booster,
              int window_length, int input_shift, Extractor extractor, bool allow_overstep)
-        : data(std::move(data_)), family(std::move(family_)), envelope(std::move(envelope_)), correctors(std::move(correctors_)), best_index(0) {
+        : data(std::move(data_)),
+          family(std::move(family_)),
+          scale(scale),
+          envelope(std::move(envelope_)),
+          correctors(std::move(correctors_)),
+          converter(std::move(converter_)),
+          best_index(0) {
     assert(data.length() > 0);
     assert(data.height() > 0);
     assert(data.height() <= std::numeric_limits<int>::max());
@@ -27,8 +36,9 @@ Block::Block(PinnedArray2D<real> data_, std::shared_ptr<Family> family_, PinnedA
     index_t how_many_candidate = (data.length() - (allow_overstep ? 1 : envelope_length)) / static_cast<index_t>(input_shift) + 1;
     const int how_many = (how_many_candidate <= 0 ? 0 : as_positive_int(how_many_candidate));
 
-    // TODO CUDA-friendly?
     maxima = PinnedArray1D<ExtractedMaximum>(how_many);
+    this->booster = Array1D<double>(how_many);
+    this->booster.fill(booster);
 
     total_request.data = data.get();
     total_request.channel_length = data.length();
@@ -46,17 +56,30 @@ Block::Block(PinnedArray2D<real> data_, std::shared_ptr<Family> family_, PinnedA
     // to be filled later on
     total_request.maxima = nullptr;
     total_request.interface = nullptr;
+
+    extended_atom_cache = std::make_shared<BlockAtomCache>();
+}
+
+
+SpectrogramRequest Block::buildRequest() {
+    return buildRequest(0, data.length());
 }
 
 SpectrogramRequest Block::buildRequest(index_t first_sample_index, index_t end_sample_index) {
     assert(first_sample_index < end_sample_index);
     assert(end_sample_index <= total_request.channel_length);
 
+    // removing stale elements from cache
+    IndexRange updated_range{first_sample_index, end_sample_index};
+    extended_atom_cache->remove_overlapping(updated_range);
+
     index_t samples_covered_by_first_envelope = total_request.input_offset + total_request.envelope_length;
     index_t first_index = (samples_covered_by_first_envelope > first_sample_index) ? 0 : 1 +
-            (first_sample_index - samples_covered_by_first_envelope) / static_cast<index_t>(total_request.input_shift);
+                                                                                         (first_sample_index - samples_covered_by_first_envelope) /
+                                                                                         static_cast<index_t>(total_request.input_shift);
     index_t end_index = 1 +
-            (end_sample_index + static_cast<index_t>(total_request.envelope_length) / 2) / static_cast<index_t>(total_request.input_shift);
+                        (end_sample_index + static_cast<index_t>(total_request.envelope_length) / 2) /
+                        static_cast<index_t>(total_request.input_shift);
     if (end_index > static_cast<index_t>(total_request.how_many)) {
         end_index = total_request.how_many;
     }
@@ -84,24 +107,38 @@ size_t Block::get_atom_count() const {
 }
 
 BlockAtom Block::get_best_match() const {
-    ExtractedMaximum extracted = maxima[best_index];
-    index_t center_position =
-            total_request.input_offset + static_cast<index_t>(best_index) * static_cast<index_t>(total_request.input_shift) + envelope.length() / 2;
+    return get_atom_from_index(best_index);
+}
 
-    return BlockAtom(
+std::list<BlockAtom> Block::get_candidate_matches(double energy_to_exceed) const {
+    std::list<BlockAtom> matches;
+    for (int index = 0; index < total_request.how_many; ++index) {
+        if (index != best_index && maxima[index].energy * booster[index] > energy_to_exceed) {
+            matches.push_back(get_atom_from_index(index));
+        }
+    }
+    return matches;
+}
+
+BlockAtom Block::get_atom_from_index(int index) const {
+    ExtractedMaximum extracted = maxima[index];
+    index_t center_position =
+            total_request.input_offset + static_cast<index_t>(index) * static_cast<index_t>(total_request.input_shift) + envelope.length() / 2;
+
+    BlockAtom result = BlockAtom(
             data,
             extracted.energy,
+            extracted.energy * booster[index],
             family,
             static_cast<double>(extracted.bin_index) / static_cast<double>(total_request.window_length),
             static_cast<double>( center_position ),
-            total_request.extractor
+            scale,
+            total_request.extractor,
+            converter
     );
-}
-
-int Block::get_how_many() const {
-    return total_request.how_many;
-}
-
-int Block::get_window_length() const {
-    return total_request.window_length;
+    if (extended_atom_cache) {
+        size_t cache_index = static_cast<size_t>(index) * static_cast<size_t>(total_request.output_bins) + static_cast<size_t>(extracted.bin_index);
+        result.connect_cache(extended_atom_cache, cache_index);
+    }
+    return result;
 }

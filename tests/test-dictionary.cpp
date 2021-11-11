@@ -8,7 +8,8 @@
 #include "Array.h"
 #include "BlockAtom.h"
 #include "BlockDictionary.h"
-#include "Family.h"
+#include "BlockHelper.h"
+#include "GaussianFamily.h"
 #include "SpectrumCalculator.h"
 #include "SpectrogramRequest.h"
 #include "Testing.h"
@@ -20,7 +21,7 @@ public:
     SpectrumCalculatorForTest() : result(9) {}
 
     const complex *computeSpectrum(Array1D<double> input, int window_length) final {
-        ASSERT_EQUALS(5, input.length());
+        ASSERT_EQUALS(7, input.length());
         ASSERT_EQUALS(16, window_length);
         return result.get();
     }
@@ -31,8 +32,8 @@ int main() {
     PinnedArray2D<double> data(1, 11);
     auto family = std::make_shared<GaussianFamily>();
 
-    BlockDictionary dictionary(data, family);
-    dictionary.add_block(1.0, 16, 1, 4, nullptr, calculator);
+    auto converter = std::make_shared<BlockAtomParamsConverter>();
+    BlockDictionary dictionary(BlockHelper::create_block(data, family, 1.0, converter, NAN, 16, 4, 1, extractorVariablePhase, calculator));
 
     std::list<SpectrogramRequest> requests;
     dictionary.fetch_requests({0, 11}, requests);
@@ -42,10 +43,10 @@ int main() {
     const SpectrogramRequest &request = requests.front();
     ASSERT_EQUALS(11, request.channel_length);
     ASSERT_EQUALS(1, request.channel_count);
-    ASSERT_EQUALS(-2, request.input_offset);
+    ASSERT_EQUALS(-3, request.input_offset);
     ASSERT_EQUALS(1, request.input_shift);
     ASSERT_EQUALS(11, request.how_many);
-    ASSERT_EQUALS(5, request.envelope_length);
+    ASSERT_EQUALS(7, request.envelope_length);
     ASSERT_EQUALS(16, request.window_length);
     ASSERT_EQUALS(4, request.output_bins);
 
@@ -57,7 +58,7 @@ int main() {
 
     BasicAtomPointer atom_pointer = dictionary.get_best_match();
     BlockAtom atom = *dynamic_cast<BlockAtom *>(atom_pointer.get());
-    ASSERT_EQUALS(5, atom.position);
+    ASSERT_EQUALS(5, atom.params.position);
 
     puts("OK");
 }

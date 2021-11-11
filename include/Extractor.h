@@ -6,22 +6,9 @@
 #ifndef EMPI_EXTRACTOR_H
 #define EMPI_EXTRACTOR_H
 
+#include "ExtraData.h"
 #include "Corrector.h"
 #include "Types.h"
-
-/**
- * Plain data structure for channel-related additional atom data.
- */
-struct ExtraData {
-    /** atom's amplitude */
-    double amplitude;
-
-    /** atom's energy, computed as sum of all samples squared */
-    double energy;
-
-    /** atom's phase between ±π */
-    double phase;
-};
 
 /**
  * Plain data structure storing a frequency index (bin) of the best-match atom as well as its energy.

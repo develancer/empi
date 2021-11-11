@@ -16,7 +16,7 @@
 #include "BookWriter.h"
 #include "Computer.h"
 #include "Configuration.h"
-#include "Family.h"
+#include "GaussianFamily.h"
 #include "PinnedArray.h"
 #include "SignalReader.h"
 #ifdef HAVE_CUDA
@@ -56,72 +56,6 @@ static std::vector<int> parseIntegerSubset(const std::string &string, int max) {
     return numbers;
 }
 
-int compute_window_length(double scale, double energy_error, std::shared_ptr<Family> family) {
-    const double min_window_length = scale / family->inv_freq_integral(1 - energy_error);
-    index_t envelope_length = family->size_for_values(0.0, scale, nullptr);
-
-    int window_length = 2;
-    while (static_cast<double>(window_length) < min_window_length || static_cast<index_t>(window_length) < envelope_length) {
-        window_length *= 2;
-        if (window_length < 0) {
-            // integer overflow
-            throw std::runtime_error("requested scale is too large");
-        }
-    }
-
-    return window_length;
-}
-
-std::unique_ptr<BlockDictionary>
-create_block_dictionary(double scale_min, double scale_max, double energy_error, PinnedArray2D<double> data, std::shared_ptr<Family> family,
-                        Extractor extractor, SpectrumCalculator &calculator) {
-    if (scale_min <= 0 || !(scale_min <= scale_max)) { // NOLINT no, this should not be simplified due to NAN and INF
-        throw std::runtime_error("requested scale range is invalid");
-    }
-    if (!(energy_error > 0 && energy_error < 1)) {
-        throw std::logic_error("requested energy error is invalid");
-    }
-    auto dictionary = std::make_unique<BlockDictionary>(data, family);
-
-    double dl = family->inv_scale_integral(1 - energy_error);
-    const double l_min = std::log(scale_min);
-    const double l_max = std::log(scale_max);
-    int il_max = Types::ceil<int>((l_max - l_min) / dl);
-
-    const double dt_scale = family->inv_time_integral(1 - energy_error);
-    for (int il = il_max; il >= 0; --il) {
-        const double scale = std::exp(l_min + (l_max - l_min) * il / il_max);
-        int input_shift = Types::floor<int>(dt_scale * scale + 1.0e-12);
-        if (input_shift < 1) {
-            throw std::runtime_error("requested minimum atom scale is too small");
-        }
-
-        // TODO check for math error or overflow
-        int window_length = compute_window_length(scale, energy_error, family);
-        int output_bins = window_length / 2 + 1; // TODO only part of spectrum
-
-        dictionary->add_block(scale, window_length, input_shift, output_bins, extractor, calculator);
-    }
-
-    return dictionary;
-}
-
-std::set<int> estimate_window_lengths(double scale_min, double scale_max, double energy_error, std::shared_ptr<Family> family) {
-    std::set<int> window_lengths;
-
-    double dl = family->inv_scale_integral(1 - energy_error);
-    const double l_min = std::log(scale_min);
-    const double l_max = std::log(scale_max);
-    long il_max = std::lrint((l_max - l_min) / dl + 0.5);
-
-    for (int il = il_max; il >= 0; --il) {
-        const double scale = std::exp(l_min + (l_max - l_min) * il / il_max);
-        int window_length = compute_window_length(scale, energy_error, family);
-        window_lengths.insert(window_length);
-    }
-
-    return window_lengths;
-}
 
 static double compute_total_energy(Array2D<double> data) {
     double sum2 = 0.0;
@@ -135,7 +69,6 @@ static double compute_total_energy(Array2D<double> data) {
 }
 
 static void empi(const char *configFilePath, bool json_output_mode) {
-//	std::unique_ptr<Decomposition> decomposition;
     std::unique_ptr<SignalReader> reader;
     DecompositionSettings settings;
 
@@ -169,7 +102,10 @@ static void empi(const char *configFilePath, bool json_output_mode) {
     }
 
     double freqMax = legacyConfiguration.has("maxAtomFrequency")
-                     ? atof(legacyConfiguration.at("maxAtomFrequency").c_str()) / freqSampling : INFINITY;
+                     ? atof(legacyConfiguration.at("maxAtomFrequency").c_str()) / freqSampling : 0.5;
+    if (freqMax <= 0 || freqMax > 0.5) {
+        throw std::runtime_error("invalidMaxFrequency");
+    }
 
     if (legacyConfiguration.has("maximalNumberOfIterations")) {
         settings.iterationMax = atoi(legacyConfiguration.at("maximalNumberOfIterations").c_str());
@@ -236,7 +172,7 @@ static void empi(const char *configFilePath, bool json_output_mode) {
 
     PinnedArray2D<double> data(reader->get_epoch_channel_count(), reader->get_epoch_sample_count());
     Array2D<double> initial(real_channel_count, reader->get_epoch_sample_count());
-    Computer computer(data);
+    Computer computer(data, OPTIMIZATION_GLOBAL);
 
     if (data.height() == 1) {
         extractor = extractorSingleChannel;
@@ -255,10 +191,11 @@ static void empi(const char *configFilePath, bool json_output_mode) {
         // TODO if the entire envelope needs to fit in epoch, divide by family->max_arg()-family->min_arg()
     }
 
-    const std::set<int> window_lengths = estimate_window_lengths(scaleMin, scaleMax, energyError, family);
-    auto primary_calculator = std::make_unique<WorkerFFTW>(data.height(), window_lengths);
+    BlockDictionaryStructure structure(family, energyError, scaleMin, scaleMax, freqMax);
+    const std::set<int> transform_sizes = structure.get_transform_sizes();
+    auto primary_calculator = std::make_unique<WorkerFFTW>(data.height(), transform_sizes);
 
-    auto dictionary = create_block_dictionary(scaleMin, scaleMax, energyError, data, family, extractor, *primary_calculator);
+    auto dictionary = std::make_unique<BlockDictionary>(structure, data, extractor, *primary_calculator);
     size_t total_atom_count = dictionary->get_atom_count();
     computer.add_dictionary(std::move(dictionary));
     std::list<ProtoRequest> proto_requests = computer.get_proto_requests();
@@ -310,7 +247,14 @@ static void empi(const char *configFilePath, bool json_output_mode) {
 
         for (int i = 0; i < settings.iterationMax; ++i) {
             auto atom = computer.get_next_atom();
-            atom->export_atom(atoms.data() + epoch_index->channel_offset);
+            std::list<ExportedAtom>* atoms_per_channel = atoms.data() + epoch_index->channel_offset;
+            atom->export_atom(atoms_per_channel);
+//          for (int c=0; c<data.height(); ++c) {
+//              const ExportedAtom& exported_atom = atoms_per_channel[c].back();
+//              if (exported_atom.scale < scaleMin - 1.0e-6 || exported_atom.scale > scaleMax + 1.0e-6) {
+//                  fprintf(stderr, "found atom with scale=%lf\n", exported_atom.scale);
+//              }
+//          }
 
             double residual_energy = compute_total_energy(data);
             double energy_progress = 100 * (1.0 - residual_energy / initial_energy);

@@ -39,48 +39,22 @@ void cufft_check(cufftResult_t result) {
 
 //////////////////////////////////////////////////////////////////////////////
 
-class CudaCorrectorResult {
-    cucomplex ft;
-    cucomplex corrected;
-    double norm_corrected;
-
-public:
-    __device__ CudaCorrectorResult(cucomplex ft, cucomplex corrected) : ft(ft), corrected(corrected),
-                                                                        norm_corrected(corrected.x * corrected.x + corrected.y * corrected.y) {}
-
-    // result has to be multiplied by family->value(0.0) / std::sqrt(scale);
-    __device__ double amplitude() const {
-        return sqrt(norm_corrected);
-    }
-
-    __device__ double energy() const {
-        cucomplex corrected2 = cuCmul(corrected, corrected);
-        return 0.5 * (norm_corrected + corrected2.x * ft.x + corrected2.y * ft.y);
-    }
-
-    __device__ cucomplex modulus() const {
-        double factor = sqrt(energy() / norm_corrected);
-        return make_cuDoubleComplex(corrected.x * factor, corrected.y * factor);
-    }
-};
-
-//////////////////////////////////////////////////////////////////////////////
-
 class CudaCorrector {
     cucomplex ft;
-    double common_factor;
-    double estimate_factor;
-
-    CudaCorrector() = delete;
+    cucomplex re_factor;
+    cucomplex im_factor;
 
 public:
-    __device__ CudaCorrectorResult compute(cucomplex value) const {
-        const bool is_value_real = std::abs(cuCimag(value)) <= 1.0e-10 * std::abs(cuCreal(value));
-        if (is_value_real) {
-            return CudaCorrectorResult(ft, cuCdiv(value, make_cuDoubleComplex(0.5 + cuCreal(ft) / 2, cuCimag(ft) / 2)));
-        }
-        const cucomplex corrected = cuCsub(value, cuCmul(cuConj(value), ft));
-        return CudaCorrectorResult(ft, make_cuDoubleComplex(corrected.x * common_factor, corrected.y * common_factor));
+    CudaCorrector() = delete;
+
+    __device__ double compute(cucomplex value) const {
+        const cucomplex corrected = make_cuDoubleComplex(
+                value.x * re_factor.x + value.y * im_factor.x,
+                value.x * re_factor.y + value.y * im_factor.y
+        );
+        const cucomplex corrected2 = cuCmul(corrected, corrected);
+        const double norm_corrected = corrected.x * corrected.x + corrected.y * corrected.y;
+        return 0.5 * (norm_corrected + corrected2.x * ft.x + corrected2.y * ft.y);
     }
 } __attribute__ ((aligned (16)));
 
@@ -116,7 +90,7 @@ extractorSingleChannelCUDA(unsigned channel_count, unsigned output_bins, cucompl
     unsigned offset = blockIdx.x * output_bins;
     for (unsigned i = tid; i < output_bins; i += THREADS_IN_BLOCK) {
         // tutaj każdy wątek zbiera po wszystkich elementach którymi ma się zająć
-        real energy = correctors[i].compute(spectra[0][offset + i]).energy();
+        double energy = correctors[i].compute(spectra[0][offset + i]);
         if (energy > sdata[tid].energy) {
             sdata[tid].energy = energy;
             sdata[tid].bin_index = i;
@@ -184,7 +158,7 @@ extractorConstantPhaseCUDA(unsigned channel_count, unsigned output_bins, cucompl
         cucomplex best_direction = (abs_direction > 0)
                                    ? cuCsqrtUnit(make_cuDoubleComplex(cuCreal(direction) / abs_direction, cuCimag(direction) / abs_direction))
                                    : make_cuDoubleComplex(1.0, 0.0);
-        auto corrector_result = correctors[i].compute(best_direction);
+        double energy_correction = correctors[i].compute(best_direction);
 
         double energy = 0;
         for (unsigned c = 0; c < channel_count; ++c) {
@@ -196,7 +170,7 @@ extractorConstantPhaseCUDA(unsigned channel_count, unsigned output_bins, cucompl
                 energy += norm_channel * cos_factor * cos_factor;
             }
         }
-        energy *= corrector_result.energy();
+        energy *= energy_correction;
 
         if (energy > sdata[tid].energy) {
             sdata[tid].energy = energy;
@@ -240,7 +214,7 @@ extractorVariablePhaseCUDA(unsigned channel_count, unsigned output_bins, cucompl
         real energy = 0;
         for (unsigned c = 0; c < channel_count; ++c) {
             const cucomplex v = spectra[c][offset + i];
-            energy += correctors[i].compute(v).energy();
+            energy += correctors[i].compute(v);
         }
         if (energy > sdata[tid].energy) {
             sdata[tid].energy = energy;

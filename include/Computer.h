@@ -10,14 +10,22 @@
 #include <memory>
 #include <mutex>
 #include <queue>
+#include <thread>
 
 #include "Array.h"
 #include "Dictionary.h"
 #include "IndexRange.h"
 #include "BlockInterface.h"
 #include "SpectrogramRequest.h"
+#include "TaskQueue.h"
 #include "Types.h"
 #include "Worker.h"
+
+enum OptimizationMode {
+    OPTIMIZATION_DISABLED = 0,
+    OPTIMIZATION_LOCAL = 1,
+    OPTIMIZATION_GLOBAL = 2
+};
 
 /**
  * The central point of the computation process.
@@ -28,22 +36,14 @@
  */
 class Computer {
     Array2D<real> data;
+    const OptimizationMode mode;
     IndexRange updated_index_range;
 
-    std::mutex requests_mutex;
-    std::list<SpectrogramRequest> requests;
+    std::shared_ptr<TaskQueue<BasicAtomPointer>> atom_queue;
+    std::shared_ptr<TaskQueue<SpectrogramRequest>> task_queue;
+    std::vector<std::thread> threads;
 
     std::list<std::unique_ptr<Dictionary>> dictionaries;
-    std::list<std::unique_ptr<Worker>> calculators_cpu;
-    std::list<std::unique_ptr<Worker>> calculators_gpu;
-
-    void work(Worker *calculator);
-
-    void work_gpu(Worker *calculator);
-
-    bool next_cpu(SpectrogramRequest &request);
-
-    bool next_gpu(SpectrogramRequest &request);
 
 public:
     /**
@@ -52,9 +52,12 @@ public:
      *
      * @param data reference to multi-channel data of the analysed signal
      */
-    explicit Computer(Array2D<real> data) : data(std::move(data)) {
-        reset();
-    }
+    explicit Computer(Array2D<real> data, OptimizationMode mode = OPTIMIZATION_DISABLED);
+
+    /**
+     * Destroy the Computer instance by terminating the task queue and closing all worker threads.
+     */
+    ~Computer();
 
     /**
      * Associate a Worker object with this Computer instance.

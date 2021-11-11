@@ -3,77 +3,85 @@
  *   Enhanced Matching Pursuit Implementation (empi)      *
  * See README.md and LICENCE for details.                 *
  **********************************************************/
+#include <array>
 #include <cmath>
 #include <memory>
 #include <vector>
 #include "Array.h"
 #include "Atom.h"
 #include "BlockAtom.h"
+#include "BlockAtomObjective.h"
 #include "Corrector.h"
+#include "Minimizer.h"
 
 //////////////////////////////////////////////////////////////////////////////
 
-BlockAtom::BlockAtom(Array2D<double> data, double energy, std::shared_ptr<Family> family_, double frequency, double position, Extractor extractor)
-        : BasicAtom(std::move(data), energy), BlockAtomTrait(frequency, position, NAN), extractor(extractor), family(std::move(family_)) {}
+BlockAtom::BlockAtom(Array2D<double> data, double energy, double energy_upper_bound, std::shared_ptr<Family> family_,
+                     double frequency, double position, double scale,
+                     Extractor extractor, std::shared_ptr<BlockAtomParamsConverter> converter_)
+        : BasicAtom(std::move(data), energy), energy_upper_bound(energy_upper_bound),
+          extractor(extractor), family(std::move(family_)), converter(std::move(converter_)), params(frequency, position, scale) {}
 
-ExtendedAtomPointer BlockAtom::extend() const {
-    index_t envelope_length;
-    index_t envelope_offset;
-    std::vector<double> envelope;
+void BlockAtom::connect_cache(std::shared_ptr<BlockAtomCache> cache, size_t key) {
+    this->cache_slot = BlockAtomCacheSlot(std::move(cache), key);
+}
 
-    // TODO local parameter optimization
+ExtendedAtomPointer BlockAtom::extend(bool allow_optimization) {
+    BlockAtomObjective objective(family, data(), extractor, converter);
 
-    envelope_length = family->size_for_values(position, scale, nullptr);
-    envelope.resize(envelope_length);
-    double norm = family->generate_values(position, scale, &envelope_offset, envelope.data(), true);
+    std::array<double, 3> array = converter->arrayFromParams(params);
+    if (allow_optimization) {
+        if (cache_slot) {
+            auto result = cache_slot->get();
+            if (result) {
+                return result;
+            }
+        }
 
-    complex FT = 0.0;
-    const double arg_for_integrals = 4 * M_PI * frequency;
-    for (index_t i = 0; i < envelope_length; ++i) {
-        const double t = static_cast<double>(envelope_offset + i) - position;
-        const double value2 = envelope[i] * envelope[i];
-        FT += value2 * std::polar(1.0, -arg_for_integrals * t);
-    }
-    index_t first_sample_offset = std::max<index_t>(0, envelope_offset);
-    index_t last_sample_offset = std::max<index_t>(0, envelope_offset + envelope_length - 1);
-
-    first_sample_offset = std::min(data().length() - 1, first_sample_offset);
-    last_sample_offset = std::min(data().length() - 1, last_sample_offset);
-
-    const int channel_count = data().height();
-    Array2D<complex> products(channel_count, 1);
-    Array1D<ExtraData> extra_data(channel_count);
-    products.fill(0.0);
-
-    for (index_t i = first_sample_offset; i <= last_sample_offset; ++i) {
-        double t = static_cast<double>(i) - position;
-        for (int c = 0; c < channel_count; ++c) {
-            products[c][0] += data()[c][i] * envelope[i - envelope_offset] * std::polar(1.0, -2 * M_PI * frequency * t);
+        Minimizer<3> minimizer;
+        int iterations = minimizer.minimize(&objective, array);
+        if (!iterations) {
+            throw std::runtime_error("could not minimize"); // TODO better
         }
     }
 
-    Corrector corrector(FT);
+    double norm;
+    const int channel_count = data().height();
+    Array1D<ExtraData> extra_data(channel_count);
+    double fit_energy = objective.calculate_energy(array, &norm, extra_data.get());
+    BlockAtomParams fit = converter->paramsFromArray(array).first;
+
     const double amplitude_factor = norm * family->value(0.0);
-    double tmp_for_extractor;
-    extractor(channel_count, 1, products.get(), &corrector, &tmp_for_extractor, extra_data.get());
     for (int i = 0; i < channel_count; ++i) {
         extra_data[i].amplitude *= amplitude_factor;
     }
 
-    return std::static_pointer_cast<ExtendedAtom>(
-            std::make_shared<BlockExtendedAtom>(
-                    data(), get_energy(),
-                    frequency, position, scale,
-                    std::move(extra_data)
-            )
+    auto result = std::make_shared<BlockExtendedAtom>(
+            data(), fit_energy, family,
+            fit.frequency, fit.position, fit.scale,
+            std::move(extra_data)
     );
+    if (allow_optimization && cache_slot) {
+        IndexRange range = family->compute_range(result->params.position, result->params.scale);
+        cache_slot->set(range, result);
+    }
+
+    return std::static_pointer_cast<ExtendedAtom>(result);
+}
+
+/**
+ * @return estimate for maximum possible energy of the atom that can be obtained by locally optimizing the coefficients
+ */
+[[nodiscard]] double BlockAtom::get_energy_upper_bound() const {
+    return energy_upper_bound;
 }
 
 //////////////////////////////////////////////////////////////////////////////
 
-BlockExtendedAtom::BlockExtendedAtom(Array2D<double> data, double energy, double frequency, double position, double scale,
+BlockExtendedAtom::BlockExtendedAtom(Array2D<double> data, double energy, std::shared_ptr<Family> family, double frequency, double position,
+                                     double scale,
                                      Array1D<ExtraData> extra)
-        : ExtendedAtom(std::move(data), energy), BlockAtomTrait(frequency, position, scale), extra(std::move(extra)) {}
+        : ExtendedAtom(std::move(data), energy), family(std::move(family)), params(frequency, position, scale), extra(std::move(extra)) {}
 
 void BlockExtendedAtom::export_atom(std::list<ExportedAtom> *atoms) {
     for (index_t c = 0; c < extra.length(); ++c) {
@@ -81,10 +89,39 @@ void BlockExtendedAtom::export_atom(std::list<ExportedAtom> *atoms) {
         ExportedAtom atom(e.energy);
         atom.amplitude = e.amplitude;
         atom.envelope = "gauss"; // TODO
-        atom.frequency = frequency;
-        atom.scale = scale;
+        atom.frequency = params.frequency;
+        atom.scale = params.scale;
         atom.phase = e.phase;
-        atom.position = position;
+        atom.position = params.position;
         atoms[c].push_back(std::move(atom));
     }
+}
+
+IndexRange BlockExtendedAtom::subtract_from_signal() const {
+    index_t first_sample_offset;
+    const index_t sample_count = family->size_for_values(params.position, params.scale, &first_sample_offset);
+    index_t end_sample_offset = first_sample_offset + sample_count;
+    if (end_sample_offset <= 0) {
+        return {0, 0};
+    }
+
+    auto data_ = data();
+    const index_t first_valid_sample_offset = std::max<index_t>(0, first_sample_offset);
+    const index_t end_valid_sample_offset = std::min<index_t>(data_.length(), end_sample_offset);
+
+    Array1D<double> samples(sample_count);
+    family->generate_values(params.position, params.scale, nullptr, samples.get(), false);
+    double common_amplitude_factor = 1.0 / family->value(0.0);
+
+    const int channel_count = data_.height();
+    const double omega = 2 * M_PI * params.frequency;
+    for (int c = 0; c < channel_count; ++c) {
+        const double channel_amplitude_factor = extra[c].amplitude * common_amplitude_factor;
+        for (index_t i = first_valid_sample_offset; i < end_valid_sample_offset; ++i) {
+            data_[c][i] -= channel_amplitude_factor * samples[i - first_sample_offset] *
+                           std::cos(omega * (static_cast<double>(i) - params.position) + extra[c].phase);
+        }
+    }
+
+    return {first_valid_sample_offset, end_valid_sample_offset};
 }

@@ -10,6 +10,7 @@
 #include <memory>
 #include "Array.h"
 #include "ExportedAtom.h"
+#include "IndexRange.h"
 
 /**
  * Base class for all atom representations.
@@ -64,6 +65,14 @@ public:
      * @param atoms array of lists of atoms (one list per channel) to which atoms' parameters should be appended
      */
     virtual void export_atom(std::list<ExportedAtom> atoms[]) = 0;
+
+    /**
+     * Subtract this atom from the multi-channel signal being analyzed.
+     *
+     * @return range of the signal samples that are being changed
+     * (can be later passed to fetch_requests in all dictionaries)
+     */
+    virtual IndexRange subtract_from_signal() const = 0;
 };
 
 using ExtendedAtomPointer = std::shared_ptr<ExtendedAtom>;
@@ -81,7 +90,12 @@ public:
      *
      * @return smart pointer to a newly created ExtendedAtom
      */
-    virtual ExtendedAtomPointer extend() const = 0;
+    [[nodiscard]] virtual ExtendedAtomPointer extend(bool allow_optimization) = 0;
+
+    /**
+     * @return estimate for maximum possible energy of the atom that can be obtained by locally optimizing the coefficients
+     */
+    [[nodiscard]] virtual double get_energy_upper_bound() const = 0;
 };
 
 using BasicAtomPointer = std::shared_ptr<BasicAtom>;

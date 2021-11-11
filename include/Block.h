@@ -6,11 +6,16 @@
 #ifndef EMPI_BLOCK_H
 #define EMPI_BLOCK_H
 
+#include <list>
+#include <map>
 #include "BlockAtom.h"
+#include "BlockAtomBase.h"
+#include "BlockAtomCache.h"
 #include "BlockInterface.h"
 #include "Extractor.h"
 #include "PinnedArray.h"
 #include "SpectrogramRequest.h"
+#include "SpectrumCalculator.h"
 #include "Types.h"
 
 /**
@@ -23,13 +28,18 @@ class Block : public BlockInterface {
 
     PinnedArray2D<real> data;
     std::shared_ptr<Family> family;
+    double scale;
     PinnedArray1D<double> envelope;
     PinnedArray1D<Corrector> correctors;
+    std::shared_ptr<BlockAtomParamsConverter> converter;
 
     PinnedArray1D<ExtractedMaximum> maxima;
+    Array1D<double> booster;
     SpectrogramRequest total_request;
 
     int best_index;
+
+    std::shared_ptr<BlockAtomCache> extended_atom_cache;
 
 public:
     /**
@@ -39,14 +49,21 @@ public:
      * @param family Family object describing properties of the envelope function
      * @param envelope L²-normalized samples of the particular realization of the envelope function
      * @param correctors array of corrections to be applied on the computed spectrum to account for normalization issues
+     * @param steps TODO
      * @param window_length number of samples of the FFT to which data will be zero-padded, should be a power of 2
      * @param input_shift shift (in samples) between consecutive time-shifted envelope realizations
      * @param extractor function that will be used to extract information from multi-channel results,
      * according to a particular mode of multi-channel operation (constant vs variable phase)
      * @param allow_overstep whether we can assume that samples before and after the actual signal range are equal to zero
      */
-    Block(PinnedArray2D<double> data, std::shared_ptr<Family> family, PinnedArray1D<double> envelope, PinnedArray1D<Corrector> correctors,
+    Block(PinnedArray2D<double> data, std::shared_ptr<Family> family, double scale, PinnedArray1D<double> envelope,
+          PinnedArray1D<Corrector> correctors, std::shared_ptr<BlockAtomParamsConverter> converter, double booster,
           int window_length, int input_shift, Extractor extractor, bool allow_overstep = true);
+
+    /**
+     * Create a SpectrogramRequest that can be used to recompute the entire block.
+     */
+    SpectrogramRequest buildRequest();
 
     /**
      * Create a SpectrogramRequest that can be used to recompute part of this block.
@@ -78,15 +95,10 @@ public:
      */
     [[nodiscard]] BlockAtom get_best_match() const;
 
-    /**
-     * @return number of consecutive time-shifted FFTs that will be computed
-     */
-    [[nodiscard]] int get_how_many() const;
+    [[nodiscard]] std::list<BlockAtom> get_candidate_matches(double energy_to_exceed) const;
 
-    /**
-     * @return number of samples (including zero-padding) of each FFT
-     */
-    [[nodiscard]] int get_window_length() const;
+private:
+    [[nodiscard]] BlockAtom get_atom_from_index(int index) const;
 };
 
 #endif //EMPI_BLOCK_H

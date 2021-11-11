@@ -10,6 +10,7 @@
 #include <cassert>
 #include <cmath>
 #include <cstddef>
+#include "IndexRange.h"
 #include "Types.h"
 
 /**
@@ -32,7 +33,7 @@ public:
      * (can be negative if center_position is zero or negative)
      * @return number of samples for the envelope realization
      */
-    virtual index_t size_for_values(double center_position, double scale, index_t *offset) = 0;
+    virtual index_t size_for_values(double center_position, double scale, index_t *offset) const = 0;
 
     /**
      * Fill the array with all non-zero values of the realization of this envelope function
@@ -47,17 +48,27 @@ public:
      * @param normalize true if values should be L²-normalized (so the sum of squares equals 1 exactly), false otherwise
      * @return value of normalization factor that was used (or would be, if normalize=false) for normalization
      */
-    virtual double generate_values(double center_position, double scale, index_t *offset, double *values, bool normalize) = 0;
+    virtual double generate_values(double center_position, double scale, index_t *offset, double *values, bool normalize) const = 0;
+
+    /**
+     * Compute range of signal samples filled by the realization of this envelope function
+     * with a given scale, centered at a given position.
+     *
+     * @param center_position in samples
+     * @param scale in samples
+     * @return range of sample indices
+     */
+    [[nodiscard]] virtual IndexRange compute_range(double center_position, double scale) const = 0;
 
     /**
      * @return the maximal value of t for which this->value(t) returns a non-negligible (non-zero) value.
      */
-    virtual double max_arg() = 0;
+    [[nodiscard]] virtual double max_arg() const = 0;
 
     /**
      * @return the minimal value of t for which this->value(t) returns a non-negligible (non-zero) value.
      */
-    virtual double min_arg() = 0;
+    [[nodiscard]] virtual double min_arg() const = 0;
 
     /**
      * Return the value of the envelope function for any given argument.
@@ -68,7 +79,7 @@ public:
      * @param t argument (time)
      * @return value of this envelope function
      */
-    virtual double value(double t) = 0;
+    [[nodiscard]] virtual double value(double t) const = 0;
 
     /**
      * Return the value of integral A(Δλ) = ∫ f(t e^(Δλ/2)) f(t e^(−Δλ/2)) dt
@@ -76,7 +87,7 @@ public:
      * @param log_scale Δλ
      * @return value of this improper integral over ±∞
      */
-    virtual double scale_integral(double log_scale) = 0;
+    [[nodiscard]] virtual double scale_integral(double log_scale) const = 0;
 
     /**
      * Return the value of the function inverse to integral A(Δλ).
@@ -84,7 +95,7 @@ public:
      * @param value fulfilling A(Δλ) = value
      * @return Δλ
      */
-    virtual double inv_scale_integral(double value) = 0;
+    [[nodiscard]] virtual double inv_scale_integral(double value) const = 0;
 
     /**
      * Return the value of integral B(x) = ∫ f(t)² cos(2πxt) dt
@@ -92,7 +103,7 @@ public:
      * @param x frequency-related parameter
      * @return value of this improper integral over ±∞
      */
-    virtual double freq_integral(double x) = 0;
+    [[nodiscard]] virtual double freq_integral(double x) const = 0;
 
     /**
      * Return the value of the function inverse to integral B(x).
@@ -100,7 +111,7 @@ public:
      * @param value fulfilling B(x) = value
      * @return x
      */
-    virtual double inv_freq_integral(double value) = 0;
+    [[nodiscard]] virtual double inv_freq_integral(double value) const = 0;
 
     /**
      * Return the value of integral S(x) = ∫ f(t)² sin(2πxt) dt
@@ -108,7 +119,7 @@ public:
      * @param x frequency-related parameter
      * @return value of this improper integral over ±∞
      */
-    virtual double skew_integral(double x) = 0;
+    [[nodiscard]] virtual double skew_integral(double x) const = 0;
 
     /**
      * Return the value of integral C(x) = ∫ f(t+x/2) f(t−x/2) dt
@@ -116,7 +127,7 @@ public:
      * @param x time-related parameter
      * @return value of this improper integral over ±∞
      */
-    virtual double time_integral(double x) = 0;
+    [[nodiscard]] virtual double time_integral(double x) const = 0;
 
     /**
      * Return the value of the function inverse to integral C(x).
@@ -124,7 +135,7 @@ public:
      * @param value fulfilling C(x) = value
      * @return x
      */
-    virtual double inv_time_integral(double value) = 0;
+    [[nodiscard]] virtual double inv_time_integral(double value) const = 0;
 
     virtual ~Family() = default;
 };
@@ -147,16 +158,15 @@ public:
      * (can be negative if center_position is zero or negative)
      * @return number of samples for the envelope realization
      */
-    index_t size_for_values(double center_position, double scale, index_t *offset) final {
-        E *self = static_cast<E *>(this);
+    index_t size_for_values(double center_position, double scale, index_t *offset) const final {
+        const E *self = static_cast<const E *>(this);
         assert(self);
 
-        index_t first_sample_offset = Types::round<index_t>(center_position + scale * self->min_arg() + 0.5);
-        index_t last_sample_offset = Types::round<index_t>(center_position + scale * self->max_arg() - 0.5);
-        index_t sample_count = last_sample_offset + 1 - first_sample_offset;
+        IndexRange range = compute_range(center_position, scale);
+        index_t sample_count = range.end_index - range.first_index;
 
         if (offset) {
-            *offset = first_sample_offset;
+            *offset = range.first_index;
         }
         return std::max<index_t>(0, sample_count);
     }
@@ -174,8 +184,8 @@ public:
      * @param normalize true if values should be L²-normalized (so the sum of squares equals 1 exactly), false otherwise
      * @return value of normalization factor that was used (or would be, if normalize=false) for normalization
      */
-    double generate_values(double center_position, double scale, index_t *offset, double *values, bool normalize) final {
-        E *self = static_cast<E *>(this);
+    double generate_values(double center_position, double scale, index_t *offset, double *values, bool normalize) const final {
+        const E *self = static_cast<const E *>(this);
         assert(self);
 
         index_t first_sample_offset;
@@ -201,41 +211,48 @@ public:
 
         return norm;
     }
-};
 
-/**
- * Family implementation for Gaussian envelope (Gabor atoms).
- */
-class GaussianFamily : public FamilyTemplate<GaussianFamily> {
-    const double min_max;
-
-public:
     /**
-     * Create a new instance representing a Gaussian envelope.
+     * Compute range of signal samples filled by the realization of this envelope function
+     * with a given scale, centered at a given position.
      *
-     * @param min_max half-width of envelope function i.e. for |t| larger than this value, f(t) will be assumed as zero
+     * @param center_position in samples
+     * @param scale in samples
+     * @return range of sample indices
      */
-    explicit GaussianFamily(double min_max = 3.0);
+    IndexRange compute_range(double center_position, double scale) const final {
+        const E *self = static_cast<const E *>(this);
+        assert(self);
 
-    double max_arg() final;
+        return IndexRange(
+                Types::ceil<index_t>(center_position + scale * self->min_arg()),
+                Types::floor<index_t>(center_position + scale * self->max_arg()) + 1
+        );
+    }
 
-    double min_arg() final;
-
-    double value(double t) final;
-
-    double scale_integral(double log_scale) final;
-
-    double inv_scale_integral(double value) final;
-
-    double freq_integral(double x) final;
-
-    double inv_freq_integral(double value) final;
-
-    double skew_integral(double x) final;
-
-    double time_integral(double x) final;
-
-    double inv_time_integral(double value) final;
+    double solve_integral(double (E::*integral)(double) const, double value) const {
+        if (value <= 0 || value >= 1) {
+            throw std::range_error("cannot solve outside valid range");
+        }
+        const E *self = static_cast<const E *>(this);
+        double xL = 0;
+        double xP = -log(value); // initial guess
+        while ((self->*integral)(xP) > value) {
+            xP *= 2.0;
+        }
+        assert((self->*integral)(xL) >= value);
+        assert((self->*integral)(xP) <= value);
+        double x;
+        do {
+            x = 0.5 * (xP + xL);
+            if ((self->*integral)(x) > value) {
+                xL = x;
+            } else {
+                xP = x;
+            }
+        } while (xP - xL > 1.0e-10);
+        return x;
+    }
 };
 
 #endif //EMPI_FAMILY_H

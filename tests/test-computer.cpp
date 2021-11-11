@@ -33,14 +33,22 @@ public:
     void export_atom(std::list<ExportedAtom> *) final {
         // nothing here
     }
+
+    IndexRange subtract_from_signal() const final {
+        return IndexRange();
+    }
 };
 
 class BasicAtomForTest : public BasicAtom {
 public:
     explicit BasicAtomForTest(Array2D<double> data, double energy) : BasicAtom(std::move(data), energy) {}
 
-    ExtendedAtomPointer extend() const override {
+    [[nodiscard]] ExtendedAtomPointer extend(bool allow_optimization) final {
         return std::make_shared<ExtendedAtomForTest>(data(), get_energy());
+    }
+
+    [[nodiscard]] double get_energy_upper_bound() const final {
+        return get_energy();
     }
 };
 
@@ -67,6 +75,10 @@ public:
         return std::make_shared<BasicAtomForTest>(data_, max_energy);
     }
 
+    std::list<BasicAtomPointer> get_candidate_matches(double energy_to_exceed) final {
+        return std::list<BasicAtomPointer>();
+    }
+
     void fetch_requests(IndexRange signal_range, std::list<SpectrogramRequest> &requests) final {
         ASSERT_EQUALS(0, signal_range.first_index);
         ASSERT_EQUALS(55, signal_range.end_index);
@@ -86,10 +98,6 @@ public:
         // nothing here
     }
 
-    IndexRange subtract_from_signal(const ExtendedAtom &) final {
-        return {0, 0};
-    }
-
     void notify() final {
         notify_called_count++;
     }
@@ -101,7 +109,7 @@ int main() {
     const int W = 7; // number of workers
     Array2D<double> data(2, 55);
 
-    Computer computer(data);
+    Computer computer(data, OPTIMIZATION_DISABLED);
     computer.add_dictionary(std::make_unique<DictionaryImplForTest>(data));
     for (int w = 0; w < W; ++w) {
         computer.add_calculator(std::make_unique<SpectrogramCalculatorForTest>());

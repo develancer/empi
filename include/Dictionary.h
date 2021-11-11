@@ -32,6 +32,8 @@ public:
      */
     virtual BasicAtomPointer get_best_match() = 0;
 
+    virtual std::list<BasicAtomPointer> get_candidate_matches(double energy_to_exceed) = 0;
+
     /**
      * Create all request templates that can be requested by this dictionary.
      * The generated proto-requests will be added to the given list.
@@ -49,15 +51,6 @@ public:
      * @param requests list for the requests to be appended to
      */
     virtual void fetch_requests(IndexRange signal_range, std::list<SpectrogramRequest> &requests) = 0;
-
-    /**
-     * Subtract given atom from the multi-channel signal being analyzed.
-     *
-     * @param atom atom to be subtracted from signal
-     * @return range of the signal samples that are being changed
-     * (can be later passed to fetch_requests)
-     */
-    virtual IndexRange subtract_from_signal(const ExtendedAtom &atom) = 0;
 
     virtual ~Dictionary() = default;
 };

@@ -7,8 +7,9 @@
 #include "Array.h"
 #include "BlockAtom.h"
 #include "BlockDictionary.h"
+#include "BlockHelper.h"
 #include "Extractor.h"
-#include "Family.h"
+#include "GaussianFamily.h"
 #include "WorkerFFTW.h"
 #include "SpectrogramRequest.h"
 #include "Testing.h"
@@ -19,7 +20,7 @@ void test(WorkerFFTW &calculator, double frequency, int position, double scale, 
     std::shared_ptr<GaussianFamily> family = std::make_shared<GaussianFamily>();
     index_t envelope_offset;
     index_t envelope_length = family->size_for_values(position, scale, nullptr);
-    Array1D<double> envelope(envelope_length);
+    PinnedArray1D<double> envelope(envelope_length);
     family->generate_values(position, scale, &envelope_offset, envelope.get(), true);
 
     PinnedArray2D<double> data(2, N);
@@ -37,8 +38,9 @@ void test(WorkerFFTW &calculator, double frequency, int position, double scale, 
         energies[0] += data[0][i] * data[0][i];
         energies[1] += data[1][i] * data[1][i];
     }
-    BlockDictionary dictionary(data, family);
-    dictionary.add_block(scale, 256, 1, 129, extractorVariablePhase, calculator);
+    auto converter = std::make_shared<BlockAtomParamsConverter>();
+    auto correctors = BlockHelper::generate_correctors(envelope, 256, 129, calculator);
+    BlockDictionary dictionary(Block(data, family, scale, envelope, correctors, converter, NAN, 256, 1, extractorVariablePhase));
 
     std::list<SpectrogramRequest> requests;
     dictionary.fetch_requests({0, N}, requests);
@@ -52,9 +54,9 @@ void test(WorkerFFTW &calculator, double frequency, int position, double scale, 
 
     const BlockAtom &block_atom = static_cast<BlockAtom &>(*atom);
 
-    ASSERT_NEAR_ZERO(block_atom.scale - scale);
-    ASSERT_NEAR_ZERO(block_atom.frequency - frequency);
-    ASSERT_NEAR_ZERO(block_atom.position - position);
+    ASSERT_NEAR_ZERO(block_atom.params.scale - scale);
+    ASSERT_NEAR_ZERO(block_atom.params.frequency - frequency);
+    ASSERT_NEAR_ZERO(block_atom.params.position - position);
     ASSERT_NEAR_ZERO(block_atom.get_energy() - (energies[0] + energies[1]));
 }
 

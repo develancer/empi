@@ -6,17 +6,17 @@
 #include <cstdio>
 #include "Array.h"
 #include "BlockAtom.h"
-#include "BlockDictionary.h"
-#include "Family.h"
+#include "GaussianFamily.h"
+#include "PinnedArray.h"
 #include "Testing.h"
 
-double compute_residual(PinnedArray2D<double> &original_data, const BlockExtendedAtom &atom, const std::shared_ptr<Family> &family) {
+double compute_residual(PinnedArray2D<double> &original_data, const BlockExtendedAtom &original_atom, const BlockAtomParams& params, const std::shared_ptr<Family> &family) {
     PinnedArray2D<double> data(original_data.height(), original_data.length());
     for (int c = 0; c < original_data.height(); ++c) {
         std::copy(original_data[c], original_data[c] + original_data.length(), data[c]);
     }
-    BlockDictionary dictionary(data, family);
-    dictionary.subtract_from_signal(atom);
+    BlockExtendedAtom atom(data, original_atom.get_energy(), family, params.frequency, params.position, params.scale, original_atom.extra);
+    atom.subtract_from_signal();
 
     double residual_energy = 0.0;
     for (int c = 0; c < 2; ++c) {
@@ -50,48 +50,49 @@ void test_constant_phase(double frequency, double position, double scale, double
         energies[1] += data[1][i] * data[1][i];
     }
 
-    BlockAtom block_atom(data, NAN, family, frequency, position, extractorConstantPhase);
-    block_atom.scale = scale;
+    auto converter = std::make_shared<BlockAtomParamsConverter>();
+    BlockAtom block_atom(data, NAN, NAN, family, frequency, position, scale, extractorConstantPhase, converter);
 
-    std::shared_ptr<BlockExtendedAtom> extended = std::dynamic_pointer_cast<BlockExtendedAtom>(block_atom.extend());
+    std::shared_ptr<BlockExtendedAtom> extended = std::dynamic_pointer_cast<BlockExtendedAtom>(block_atom.extend(false));
     ASSERT(extended);
     ASSERT_EQUALS(2, extended->extra.length());
 
-    double original_residual = compute_residual(data, *extended, family);
+    BlockAtomParams params(extended->params);
+    double original_residual = compute_residual(data, *extended, params, family);
     ASSERT_NEAR_ZERO(original_residual - 2.5);
 
-    extended->scale += 0.01;
-    ASSERT(compute_residual(data, *extended, family) > original_residual);
-    extended->scale -= 0.02;
-    ASSERT(compute_residual(data, *extended, family) > original_residual);
-    extended->scale += 0.01;
+    params.scale += 0.01;
+    ASSERT(compute_residual(data, *extended, params, family) > original_residual);
+    params.scale -= 0.02;
+    ASSERT(compute_residual(data, *extended, params, family) > original_residual);
+    params.scale += 0.01;
 
-    extended->frequency += 0.01;
-    ASSERT(compute_residual(data, *extended, family) > original_residual);
-    extended->frequency -= 0.02;
-    ASSERT(compute_residual(data, *extended, family) > original_residual);
-    extended->frequency += 0.01;
+    params.frequency += 0.01;
+    ASSERT(compute_residual(data, *extended, params, family) > original_residual);
+    params.frequency -= 0.02;
+    ASSERT(compute_residual(data, *extended, params, family) > original_residual);
+    params.frequency += 0.01;
 
-    extended->position += 1.0;
-    ASSERT(compute_residual(data, *extended, family) > original_residual);
-    extended->position -= 2.0;
-    ASSERT(compute_residual(data, *extended, family) > original_residual);
-    extended->position += 1.0;
+    params.position += 1.0;
+    ASSERT(compute_residual(data, *extended, params, family) > original_residual);
+    params.position -= 2.0;
+    ASSERT(compute_residual(data, *extended, params, family) > original_residual);
+    params.position += 1.0;
 
     for (int c = 0; c < 2; ++c) {
         extended->extra[0].amplitude += 0.01;
-        ASSERT(compute_residual(data, *extended, family) > original_residual);
+        ASSERT(compute_residual(data, *extended, params, family) > original_residual);
         extended->extra[0].amplitude -= 0.02;
-        ASSERT(compute_residual(data, *extended, family) > original_residual);
+        ASSERT(compute_residual(data, *extended, params, family) > original_residual);
         extended->extra[0].amplitude += 0.01;
     }
 
     extended->extra[0].phase += 0.01;
     extended->extra[1].phase += 0.01;
-    ASSERT(compute_residual(data, *extended, family) > original_residual);
+    ASSERT(compute_residual(data, *extended, params, family) > original_residual);
     extended->extra[0].phase -= 0.02;
     extended->extra[1].phase -= 0.02;
-    ASSERT(compute_residual(data, *extended, family) > original_residual);
+    ASSERT(compute_residual(data, *extended, params, family) > original_residual);
     extended->extra[0].phase += 0.01;
     extended->extra[1].phase += 0.01;
 }
@@ -119,15 +120,15 @@ void test_variable_phase(double frequency, double position, double scale, double
         energies[1] += data[1][i] * data[1][i];
     }
 
-    BlockAtom block_atom(data, NAN, family, frequency, position, extractorVariablePhase);
-    block_atom.scale = scale;
+    auto converter = std::make_shared<BlockAtomParamsConverter>();
+    BlockAtom block_atom(data, NAN, NAN, family, frequency, position, scale, extractorVariablePhase, converter);
 
-    std::shared_ptr<BlockExtendedAtom> extended = std::dynamic_pointer_cast<BlockExtendedAtom>(block_atom.extend());
+    std::shared_ptr<BlockExtendedAtom> extended = std::dynamic_pointer_cast<BlockExtendedAtom>(block_atom.extend(false));
     ASSERT(extended);
     ASSERT_EQUALS(2, extended->extra.length());
 
-    ASSERT_NEAR_ZERO(std::fmod(std::abs(extended->extra[0].phase - phase0), 2 * M_PI));
-    ASSERT_NEAR_ZERO(std::fmod(std::abs(extended->extra[1].phase - phase1), 2 * M_PI));
+    ASSERT_SAME_PHASE(phase0, extended->extra[0].phase, 1.0e-10);
+    ASSERT_SAME_PHASE(phase1, extended->extra[1].phase, 1.0e-10);
 
     ASSERT_NEAR_ZERO(extended->extra[0].amplitude - amplitude0);
     ASSERT_NEAR_ZERO(extended->extra[1].amplitude - amplitude1);
@@ -135,8 +136,7 @@ void test_variable_phase(double frequency, double position, double scale, double
     ASSERT_NEAR_ZERO(extended->extra[0].energy - energies[0]);
     ASSERT_NEAR_ZERO(extended->extra[1].energy - energies[1]);
 
-    BlockDictionary dictionary(data, family);
-    dictionary.subtract_from_signal(*extended);
+    extended->subtract_from_signal();
 
     for (int c = 0; c < 2; ++c) {
         for (int i = 0; i < 100; ++i) {
