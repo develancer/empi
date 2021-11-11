@@ -41,7 +41,7 @@ if(WITH_CUDA)
 endif()
 
 add_executable(empi src/special/empi.cpp)
-target_link_libraries(empi empi-cpu fftw3 gsl)
+target_link_libraries(empi empi-cpu fftw3 gsl gslcblas)
 if(WITH_CUDA)
     target_link_libraries(empi empi-gpu cufft_static culibos)
 else()
@@ -71,15 +71,16 @@ foreach(TEST_SOURCE ${EMPI_TEST_SOURCES})
     add_test(${TEST} ${TEST})
 endforeach()
 
-target_link_libraries(test-best-match empi-fake-gpu fftw3 gsl)
+target_link_libraries(test-best-match empi-fake-gpu fftw3 gsl gslcblas)
 
-target_link_libraries(test-block empi-fake-gpu gsl)
+target_link_libraries(test-block empi-fake-gpu gsl gslcblas)
 
-target_link_libraries(test-block-atom empi-fake-gpu gsl)
+target_link_libraries(test-block-atom empi-fake-gpu gsl gslcblas)
 
 if(NOT WITH_CUDA)
     set_property(TARGET test-book-writer PROPERTY LINK_FLAGS -pthread)
     set_property(TARGET test-computer PROPERTY LINK_FLAGS -pthread)
+    set_property(TARGET test-task-queue PROPERTY LINK_FLAGS -pthread)
 endif()
 
 if(WITH_CUDA)
@@ -88,8 +89,8 @@ if(WITH_CUDA)
     add_test(test-cuda test-cuda)
 endif()
 
-target_link_libraries(test-dictionary empi-fake-gpu gsl)
+target_link_libraries(test-dictionary empi-fake-gpu gsl gslcblas)
 
 target_link_libraries(test-fftw fftw3)
 
-target_link_libraries(test-measure empi-fake-gpu fftw3 gsl)
+target_link_libraries(test-measure empi-fake-gpu fftw3 gsl gslcblas)
