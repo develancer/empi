@@ -15,7 +15,7 @@ double compute_residual(PinnedArray2D<double> &original_data, const BlockExtende
     for (int c = 0; c < original_data.height(); ++c) {
         std::copy(original_data[c], original_data[c] + original_data.length(), data[c]);
     }
-    BlockExtendedAtom atom(data, original_atom.get_energy(), family, params.frequency, params.position, params.scale, original_atom.extra);
+    BlockExtendedAtom atom(data, original_atom.energy, family, params.frequency, params.position, params.scale, original_atom.extra);
     atom.subtract_from_signal();
 
     double residual_energy = 0.0;

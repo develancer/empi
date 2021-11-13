@@ -83,12 +83,12 @@ ExtendedAtomPointer Computer::get_next_atom() {
         // we also have to check other candidates
         std::list<BasicAtomPointer> candidates;
         for (auto &dictionary : dictionaries) {
-            candidates.splice(candidates.end(), dictionary->get_candidate_matches(best_atom->get_energy()));
+            candidates.splice(candidates.end(), dictionary->get_candidate_matches(best_atom->energy));
         }
         atom_queue->put(std::list<BasicAtomPointer>(candidates));
         for (const auto &candidate : candidates) {
             ExtendedAtomPointer another_atom = candidate->extend(true);
-            if (another_atom->get_energy() > best_atom->get_energy()) {
+            if (another_atom->energy > best_atom->energy) {
                 best_atom = another_atom;
             }
         }

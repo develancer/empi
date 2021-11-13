@@ -18,33 +18,26 @@
  * has a well-defined energy and can be used to generate a waveform.
  */
 class Atom {
-    Array2D<double> data_;
-    double energy;
-
 protected:
-    explicit Atom(Array2D<double> data, double energy) : data_(std::move(data)), energy(energy) {}
+    explicit Atom(Array2D<double> data, double energy) : data(std::move(data)), energy(energy) {}
 
 public:
+    /**
+     * reference to multi-channel data of the analysed signal
+     */
+    const Array2D<double> data;
+
+    /**
+     * energy of the atom, computed as sum of all samples squared
+     */
+    const double energy;
+
     /**
      * Compares atoms according to their energies.
      * @return true if atom has smaller energy than the other atom, false otherwise
      */
     bool operator<(const Atom &other) const {
         return energy < other.energy;
-    }
-
-    /**
-     * @return reference to multi-channel data of the analysed signal
-     */
-    [[nodiscard]] const Array2D<double> &data() const {
-        return data_;
-    }
-
-    /**
-     * @return energy of the atom, computed as sum of all samples squared
-     */
-    [[nodiscard]] double get_energy() const {
-        return energy;
     }
 
     virtual ~Atom() = default;

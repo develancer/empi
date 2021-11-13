@@ -57,7 +57,7 @@ void test(WorkerFFTW &calculator, double frequency, int position, double scale, 
     ASSERT_NEAR_ZERO(block_atom.params.scale - scale);
     ASSERT_NEAR_ZERO(block_atom.params.frequency - frequency);
     ASSERT_NEAR_ZERO(block_atom.params.position - position);
-    ASSERT_NEAR_ZERO(block_atom.get_energy() - (energies[0] + energies[1]));
+    ASSERT_NEAR_ZERO(block_atom.energy - (energies[0] + energies[1]));
 }
 
 int main() {

@@ -44,11 +44,11 @@ public:
     explicit BasicAtomForTest(Array2D<double> data, double energy) : BasicAtom(std::move(data), energy) {}
 
     [[nodiscard]] ExtendedAtomPointer extend(bool allow_optimization) final {
-        return std::make_shared<ExtendedAtomForTest>(data(), get_energy());
+        return std::make_shared<ExtendedAtomForTest>(data, energy);
     }
 
     [[nodiscard]] double get_energy_upper_bound() const final {
-        return get_energy();
+        return energy;
     }
 };
 
@@ -115,7 +115,7 @@ int main() {
         computer.add_calculator(std::make_unique<SpectrogramCalculatorForTest>());
     }
     ExtendedAtomPointer atom = computer.get_next_atom();
-    ASSERT_EQUALS(10.0 * (R - 1), atom->get_energy());
+    ASSERT_EQUALS(10.0 * (R - 1), atom->energy);
     ASSERT_EQUALS(R, DictionaryImplForTest::notify_called_count);
     puts("OK");
 }

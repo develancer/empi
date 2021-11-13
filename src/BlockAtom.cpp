@@ -27,7 +27,7 @@ void BlockAtom::connect_cache(std::shared_ptr<BlockAtomCache> cache, size_t key)
 }
 
 ExtendedAtomPointer BlockAtom::extend(bool allow_optimization) {
-    BlockAtomObjective objective(family, data(), extractor, converter);
+    BlockAtomObjective objective(family, data, extractor, converter);
 
     std::array<double, 3> array = converter->arrayFromParams(params);
     if (allow_optimization) {
@@ -46,7 +46,7 @@ ExtendedAtomPointer BlockAtom::extend(bool allow_optimization) {
     }
 
     double norm;
-    const int channel_count = data().height();
+    const int channel_count = data.height();
     Array1D<ExtraData> extra_data(channel_count);
     double fit_energy = objective.calculate_energy(array, &norm, extra_data.get());
     BlockAtomParams fit = converter->paramsFromArray(array).first;
@@ -57,7 +57,7 @@ ExtendedAtomPointer BlockAtom::extend(bool allow_optimization) {
     }
 
     auto result = std::make_shared<BlockExtendedAtom>(
-            data(), fit_energy, family,
+            data, fit_energy, family,
             fit.frequency, fit.position, fit.scale,
             std::move(extra_data)
     );
@@ -105,20 +105,19 @@ IndexRange BlockExtendedAtom::subtract_from_signal() const {
         return {0, 0};
     }
 
-    auto data_ = data();
     const index_t first_valid_sample_offset = std::max<index_t>(0, first_sample_offset);
-    const index_t end_valid_sample_offset = std::min<index_t>(data_.length(), end_sample_offset);
+    const index_t end_valid_sample_offset = std::min<index_t>(data.length(), end_sample_offset);
 
     Array1D<double> samples(sample_count);
     family->generate_values(params.position, params.scale, nullptr, samples.get(), false);
     double common_amplitude_factor = 1.0 / family->value(0.0);
 
-    const int channel_count = data_.height();
+    const int channel_count = data.height();
     const double omega = 2 * M_PI * params.frequency;
     for (int c = 0; c < channel_count; ++c) {
         const double channel_amplitude_factor = extra[c].amplitude * common_amplitude_factor;
         for (index_t i = first_valid_sample_offset; i < end_valid_sample_offset; ++i) {
-            data_[c][i] -= channel_amplitude_factor * samples[i - first_sample_offset] *
+            data[c][i] -= channel_amplitude_factor * samples[i - first_sample_offset] *
                            std::cos(omega * (static_cast<double>(i) - params.position) + extra[c].phase);
         }
     }

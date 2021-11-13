@@ -16,6 +16,7 @@
 #include "BookWriter.h"
 #include "Computer.h"
 #include "Configuration.h"
+#include "DeltaDictionary.h"
 #include "GaussianFamily.h"
 #include "PinnedArray.h"
 #include "SignalReader.h"
@@ -197,6 +198,7 @@ static void empi(const char *configFilePath, bool json_output_mode) {
 
     auto dictionary = std::make_unique<BlockDictionary>(structure, data, extractor, *primary_calculator);
     size_t total_atom_count = dictionary->get_atom_count();
+    computer.add_dictionary(std::make_unique<DeltaDictionary>(data));
     computer.add_dictionary(std::move(dictionary));
     std::list<ProtoRequest> proto_requests = computer.get_proto_requests();
 
