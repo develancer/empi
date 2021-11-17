@@ -27,9 +27,9 @@ file(GLOB EMPI_CPU_SOURCES src/*.cpp)
 file(GLOB EMPI_GPU_SOURCES src/*.cu)
 file(GLOB EMPI_TEST_SOURCES tests/*.cpp)
 
-add_library(empi-cpu STATIC ${EMPI_CPU_SOURCES} src/sqlite3.c)
-target_include_directories(empi-cpu PUBLIC include)
-set_property(SOURCE src/sqlite3.c PROPERTY COMPILE_FLAGS -DSQLITE_OMIT_LOAD_EXTENSION)
+add_library(empi-cpu STATIC ${EMPI_CPU_SOURCES} vendor/sqlite3.c)
+target_include_directories(empi-cpu PUBLIC include vendor/include)
+set_property(SOURCE vendor/sqlite3.c PROPERTY COMPILE_FLAGS -DSQLITE_OMIT_LOAD_EXTENSION)
 
 add_library(empi-fake-gpu STATIC src/special/alloc.cpp)
 target_include_directories(empi-fake-gpu PUBLIC include)
@@ -41,7 +41,7 @@ if(WITH_CUDA)
 endif()
 
 add_executable(empi src/special/empi.cpp)
-target_link_libraries(empi empi-cpu fftw3 gsl gslcblas)
+target_link_libraries(empi empi-cpu fftw3)
 if(WITH_CUDA)
     target_link_libraries(empi empi-gpu cufft_static culibos)
 else()
@@ -71,11 +71,11 @@ foreach(TEST_SOURCE ${EMPI_TEST_SOURCES})
     add_test(${TEST} ${TEST})
 endforeach()
 
-target_link_libraries(test-best-match empi-fake-gpu fftw3 gsl gslcblas)
+target_link_libraries(test-best-match empi-fake-gpu fftw3)
 
-target_link_libraries(test-block empi-fake-gpu gsl gslcblas)
+target_link_libraries(test-block empi-fake-gpu)
 
-target_link_libraries(test-block-atom empi-fake-gpu gsl gslcblas)
+target_link_libraries(test-block-atom empi-fake-gpu)
 
 if(NOT WITH_CUDA)
     set_property(TARGET test-book-writer PROPERTY LINK_FLAGS -pthread)
@@ -89,8 +89,8 @@ if(WITH_CUDA)
     add_test(test-cuda test-cuda)
 endif()
 
-target_link_libraries(test-dictionary empi-fake-gpu gsl gslcblas)
+target_link_libraries(test-dictionary empi-fake-gpu)
 
 target_link_libraries(test-fftw fftw3)
 
-target_link_libraries(test-measure empi-fake-gpu fftw3 gsl gslcblas)
+target_link_libraries(test-measure empi-fake-gpu fftw3)

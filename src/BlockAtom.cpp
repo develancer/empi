@@ -7,12 +7,12 @@
 #include <cmath>
 #include <memory>
 #include <vector>
+#include "nelder_mead.h"
 #include "Array.h"
 #include "Atom.h"
 #include "BlockAtom.h"
 #include "BlockAtomObjective.h"
 #include "Corrector.h"
-#include "Minimizer.h"
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -38,11 +38,12 @@ ExtendedAtomPointer BlockAtom::extend(bool allow_optimization) {
             }
         }
 
-        Minimizer<3> minimizer;
-        int iterations = minimizer.minimize(&objective, array);
-        if (!iterations) {
+        std::array<double, 3> step{0.5, 0.5, 0.5};
+        auto result = nelder_mead<double, 3>(objective, array, 1.0e-16 * energy * energy, step);
+        if (result.ifault) {
             throw std::runtime_error("could not minimize"); // TODO better
         }
+        array = result.xmin;
     }
 
     double norm;
