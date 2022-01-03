@@ -13,7 +13,7 @@ void test_product() {
     BlockAtomProductCalculator calculator(family);
 
     BlockAtomParams x0{0.2, 2.0, 20.0};
-    ASSERT_APPROX(1.0, calculator.calculate_product(x0, x0), 1.0e-10);
+    ASSERT_APPROX(1.0, calculator.calculate_squared_product(x0, x0), 1.0e-10);
 
     const double energy_error = 0.01;
     const double dl = family->inv_scale_integral(1 - energy_error);
@@ -25,9 +25,10 @@ void test_product() {
     xt.position += dt;
     xs.scale *= std::exp(dl);
 
-    ASSERT_APPROX(1.0 - energy_error, calculator.calculate_product(x0, xf), 1.0e-10);
-    ASSERT_APPROX(1.0 - energy_error, calculator.calculate_product(x0, xt), 1.0e-10);
-    ASSERT_APPROX(1.0 - energy_error, calculator.calculate_product(x0, xs), 1.0e-10);
+    const double expected = std::pow(1 - energy_error, 2);
+    ASSERT_APPROX(expected, calculator.calculate_squared_product(x0, xf), 1.0e-10);
+    ASSERT_APPROX(expected, calculator.calculate_squared_product(x0, xt), 1.0e-10);
+    ASSERT_APPROX(expected, calculator.calculate_squared_product(x0, xs), 1.0e-10);
 }
 
 int main() {

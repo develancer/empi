@@ -17,10 +17,11 @@ BlockAtomObjective::BlockAtomObjective(std::shared_ptr<Family> family, Array2D<d
         converter(std::move(converter_)) {}
 
 double BlockAtomObjective::calculate_energy(const std::array<double,3> &array, double *out_norm, ExtraData *out_extra_data) {
-    auto params_pair = converter->paramsFromArray(array);
-    BlockAtomParams& params = params_pair.first;
-    double penalty = params_pair.second;
+    auto [params, penalty] = converter->paramsFromArray(array);
+    return std::exp(-penalty) * calculate_energy(params, out_norm, out_extra_data);
+}
 
+double BlockAtomObjective::calculate_energy(const BlockAtomParams& params, double *out_norm, ExtraData *out_extra_data) {
     index_t envelope_length = family->size_for_values(params.position, params.scale, nullptr);
     index_t envelope_offset;
     envelope.resize(envelope_length);
@@ -56,6 +57,6 @@ double BlockAtomObjective::calculate_energy(const std::array<double,3> &array, d
 
     Corrector corrector(FT);
     double tmp_for_extractor;
-    double result = std::exp(-penalty) * extractor(channel_count, 1, products.get(), &corrector, &tmp_for_extractor, out_extra_data).energy;
+    double result = extractor(channel_count, 1, products.get(), &corrector, &tmp_for_extractor, out_extra_data).energy;
     return result;
 }

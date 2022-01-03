@@ -32,6 +32,8 @@ public:
 
     double calculate_energy(const std::array<double, 3> &array, double *out_norm, ExtraData *out_extra_data);
 
+    double calculate_energy(const BlockAtomParams &params, double *out_norm, ExtraData *out_extra_data);
+
     double operator()(const std::array<double, 3> &array) {
         return -calculate_energy(array, nullptr, nullptr);
     }

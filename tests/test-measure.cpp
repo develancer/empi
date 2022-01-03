@@ -43,8 +43,8 @@ int main(int argc, char **argv) {
             if (other.frequency >= 0 && other.frequency <= 0.5) {
                 other.position += i1 * position_step * a;
                 other.scale *= a;
-                double y = calculator.calculate_product(params, other, phase);
-                result = std::min(result, y * y);
+                double y = calculator.calculate_squared_product(other, params, phase);
+                result = std::min(result, y);
             }
         }
     }
@@ -55,8 +55,8 @@ int main(int argc, char **argv) {
             if (other.frequency >= 0 && other.frequency <= 0.5) {
                 other.position += i1 * position_step / a;
                 other.scale /= a;
-                double y = calculator.calculate_product(params, other, phase);
-                result = std::min(result, y * y);
+                double y = calculator.calculate_squared_product(other, params, phase);
+                result = std::min(result, y);
             }
         }
     }
