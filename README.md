@@ -30,9 +30,6 @@ However, since the purpose of the provided binaries is to be as compatible as
 possible, they may not take full advantage of your specific architecture. To
 achieve maximal performance, compiling empi from source is recommended.
 
-Additionally, precompiled binaries for OS X does not support OpenMP (therefore,
-they run a single thread). To use OpenMP on OS X, compilation is necessary.
-
 ### Compilation
 
 #### Requirements
@@ -81,17 +78,15 @@ Single invocation of empi will
 
 * read a single binary file (or its part),
 * decompose it as a linear combination of Gabor atoms, and
-* save the results to either SQLite, JSON or legacy format
-([SVAROG](https://github.com/BrainTech/svarog)'s “book” format is supported).
+* save the results as either SQLite or JSON
 
 Directory _demo_ includes Python and Matlab/Octave scripts demonstrating
 how to access data from the resulting SQLite decomposition file.
 
 empi needs to be run with a single command-line argument: a path to the
 configuration file. If run with no arguments, it will print the correct usage.
-Default output format is SQLite; however:
-* if `-x` is given as an argument, legacy “book” file will be created instead;
-* if `-j` is given as an argument, JSON output file will be created instead.
+Default output format is SQLite; however, if `-j` is given as an argument,
+JSON output file will be created instead.
 
 ### Configuration file format
 
