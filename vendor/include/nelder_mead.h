@@ -36,6 +36,7 @@
  *    c) floating-point type and number of variables are now template arguments
  *    d) std::array is now used instead of pointers to raw arrays
  *    e) overall comments and code formatting
+ *    f) the terminating limit is now in terms of simplex size instead of variance in function values
  *
  *  Reference:
  *
@@ -55,6 +56,7 @@
  */
 #ifndef PTR_NELDER_MEAD_H
 
+#include <algorithm>
 #include <array>
 #include <climits>
 #include <functional>
@@ -81,7 +83,7 @@ struct nelder_mead_result {
  * @tparam n the number of variables
  * @param fn the function to be minimized
  * @param start a starting point for the iteration
- * @param reqmin the terminating limit for the variance of function values
+ * @param reqmin the terminating limit for the size of the simplex
  * @param step determines the size and shape of the initial simplex;
  * the relative magnitudes of its elements should reflect the units of the variables
  * @param konvge the convergence check is carried out every konvge iterations
@@ -106,7 +108,6 @@ nelder_mead_result<real,n> nelder_mead(
     int jcount;
     int l;
     const real rcoeff = 1.0;
-    real rq;
     real x;
     real y2star;
     real ylo;
@@ -130,7 +131,6 @@ nelder_mead_result<real,n> nelder_mead(
 
     jcount = konvge;
     del = 1.0;
-    rq = reqmin * n;
 
     // Initial or restarted loop.
     for (;;) {
@@ -282,19 +282,21 @@ nelder_mead_result<real,n> nelder_mead(
             if (result.icount <= kcount) {
                 jcount = konvge;
 
-                z = 0.0;
-                for (int i = 0; i < n + 1; i++) {
-                    z += y[i];
-                }
-                x = z / (n + 1);
-
-                z = 0.0;
-                for (int i = 0; i < n + 1; i++) {
-                    real yx = y[i] - x;
-                    z += yx * yx;
+                real max[n], min[n];
+                for (int i = 0; i < n; i++) {
+                    min[i] = max[i] = p[0][i];
+                    for (int j = 1; j < n + 1; j++) {
+                        max[i] = std::max(max[i], p[j][i]);
+                        min[i] = std::min(min[i], p[j][i]);
+                    }
                 }
 
-                if (z <= rq) {
+                z = 0.0;
+                for (int i = 0; i < n; i++) {
+                    z = std::max(z, max[i] - min[i]);
+                }
+
+                if (z <= reqmin) {
                     break;
                 }
             }
