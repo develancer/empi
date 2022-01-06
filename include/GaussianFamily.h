@@ -15,16 +15,20 @@ class GaussianFamily : public FamilyTemplate<GaussianFamily> {
     const double min_max;
 
 public:
+    static inline const double DEFAULT_MIN_MAX = 3.0;
+
     /**
      * Create a new instance representing a Gaussian envelope.
      *
      * @param min_max half-width of envelope function i.e. for |t| larger than this value, f(t) will be assumed as zero
      */
-    explicit GaussianFamily(double min_max = 3.0);
+    explicit GaussianFamily(double min_max = DEFAULT_MIN_MAX);
 
     double max_arg() const final;
 
     double min_arg() const final;
+
+    const char *name() const final;
 
     double value(double t) const final;
 

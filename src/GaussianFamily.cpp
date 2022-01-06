@@ -22,6 +22,10 @@ double GaussianFamily::min_arg() const {
     return -min_max;
 }
 
+const char *GaussianFamily::name() const {
+    return "gauss";
+}
+
 double GaussianFamily::value(double t) const {
     return NORM * std::exp(-M_PI * t * t);
 }

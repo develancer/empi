@@ -89,7 +89,7 @@ void BlockExtendedAtom::export_atom(std::list<ExportedAtom> *atoms) {
         const ExtraData &e = extra[c];
         ExportedAtom atom(e.energy);
         atom.amplitude = e.amplitude;
-        atom.envelope = "gauss"; // TODO
+        atom.envelope = family->name();
         atom.frequency = params.frequency;
         atom.scale = params.scale;
         atom.phase = e.phase;

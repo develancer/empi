@@ -71,6 +71,11 @@ public:
     [[nodiscard]] virtual double min_arg() const = 0;
 
     /**
+     * @return name of the envelope, e.g. "gauss"
+     */
+    [[nodiscard]] virtual const char *name() const = 0;
+
+    /**
      * Return the value of the envelope function for any given argument.
      * This is the most important method of the Family classes.
      * All Family implementations should be L²-normalized, fulfilling ∫ f(t)² dt = 1

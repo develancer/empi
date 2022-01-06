@@ -22,6 +22,10 @@ double TriangularFamily::min_arg() const {
     return -MIN_MAX;
 }
 
+const char *TriangularFamily::name() const {
+    return "triangular";
+}
+
 double TriangularFamily::value(double t) const {
     const double abs_t = std::abs(t);
     return (abs_t < MIN_MAX) ? NORM * (1.0 - abs_t / MIN_MAX) : 0.0;

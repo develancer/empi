@@ -22,6 +22,8 @@ public:
 
     double min_arg() const final;
 
+    const char *name() const final;
+
     double value(double t) const final;
 
     double scale_integral(double log_scale) const final;
