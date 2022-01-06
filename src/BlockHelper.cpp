@@ -53,13 +53,14 @@ std::map<double,int> BlockHelper::compute_scales_and_transform_sizes(const Famil
     std::map<double,int> result;
     for (int il = 0; il <= il_max; ++il) {
         const double scale = std::exp(log_scale_min + (log_scale_max - log_scale_min) * il / il_max);
-        int transform_size = round_transform_size(scale / df_scale);
         // TODO center position does not have to be 0.0 in case of sub-sample spacing
         index_t envelope_length = family->size_for_values(0.0, scale, nullptr);
         if (envelope_length > static_cast<index_t>(std::numeric_limits<int>::max())) {
             throw std::runtime_error("max atom scale is too large");
         }
-        result.emplace(std::make_pair(scale, std::max(transform_size, static_cast<int>(envelope_length))));
+        const double min_transform_size_as_float = std::max<double>(scale / df_scale, static_cast<double>(envelope_length));
+        int transform_size = round_transform_size(min_transform_size_as_float);
+        result.emplace(std::make_pair(scale, transform_size));
     }
     return result;
 }
