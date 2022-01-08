@@ -69,7 +69,7 @@ void run_test(Extractor extractor) {
     Array1D<ExtractedMaximum> maxima_dummy(request.how_many);
     Array1D<ExtractedMaximum> maxima_cuda(request.how_many);
 
-    WorkerCUDA cuda(channel_count, {request});
+    WorkerCUDA cuda(channel_count, {request}, 0);
     WorkerDummy dummy;
 
     request.maxima = maxima_dummy.get();

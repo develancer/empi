@@ -295,6 +295,7 @@ std::shared_ptr<CUstream_st> cuda_create_stream() {
 //////////////////////////////////////////////////////////////////////////////
 
 class CudaTask {
+    const int device;
     std::map<std::pair<int, int>, cufftHandle> plans;
 
     std::shared_ptr<CudaCallbackInfo> info;
@@ -339,7 +340,7 @@ class CudaTask {
     }
 
 public:
-    CudaTask(int channel_count, const std::list<ProtoRequest> &proto_requests) {
+    CudaTask(int channel_count, const std::list<ProtoRequest> &proto_requests, int device) : device(device) {
         int max_envelope_length = 0;
         int max_output_bins = 0;
         int max_window_length = 0;
@@ -349,6 +350,7 @@ public:
             max_window_length = std::max(max_window_length, proto_request.window_length);
         }
 
+        cuda_check(cudaSetDevice(device));
         stream = cuda_create_stream();
 
         info.reset(cuda_host_alloc<CudaCallbackInfo>(1), cuda_host_free);
@@ -437,12 +439,14 @@ public:
     }
 
     ~CudaTask() {
+        cuda_check(cudaSetDevice(device));
         for (auto &pair : plans) {
             cufftDestroy(pair.second);
         }
     }
 
     void compute(const SpectrogramRequest &request) {
+        cuda_check(cudaSetDevice(device));
         const index_t total_input_length = request.envelope_length + (request.how_many - 1) * request.input_shift;
         IndexRange overlap = IndexRange(-request.input_offset, request.channel_length - request.input_offset).overlap(total_input_length);
         if (!overlap) {
@@ -498,8 +502,8 @@ public:
 
 //////////////////////////////////////////////////////////////////////////////
 
-WorkerCUDA::WorkerCUDA(int channel_count, const std::list<ProtoRequest> &proto_requests) {
-    task = std::make_shared<CudaTask>(channel_count, proto_requests);
+WorkerCUDA::WorkerCUDA(int channel_count, const std::list<ProtoRequest> &proto_requests, int device) {
+    task = std::make_shared<CudaTask>(channel_count, proto_requests, device);
 }
 
 void WorkerCUDA::compute(const SpectrogramRequest &request) {

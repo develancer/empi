@@ -13,19 +13,14 @@
 #include <thread>
 
 #include "Array.h"
+#include "BlockInterface.h"
 #include "Dictionary.h"
 #include "IndexRange.h"
-#include "BlockInterface.h"
+#include "OptimizationMode.h"
 #include "SpectrogramRequest.h"
 #include "TaskQueue.h"
 #include "Types.h"
 #include "Worker.h"
-
-enum OptimizationMode {
-    OPTIMIZATION_DISABLED = 0,
-    OPTIMIZATION_LOCAL = 1,
-    OPTIMIZATION_GLOBAL = 2
-};
 
 /**
  * The central point of the computation process.
@@ -51,8 +46,9 @@ public:
      * Dictionaries and workers must be added manually after constructing the Computer instance.
      *
      * @param data reference to multi-channel data of the analysed signal
+     * @param cpu_threads number of CPU workers to use for global optimization
      */
-    explicit Computer(Array2D<real> data, OptimizationMode mode = OPTIMIZATION_DISABLED);
+    explicit Computer(Array2D<real> data, unsigned cpu_threads, OptimizationMode mode = OPTIMIZATION_DISABLED);
 
     /**
      * Destroy the Computer instance by terminating the task queue and closing all worker threads.

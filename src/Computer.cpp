@@ -19,14 +19,14 @@ static void set_thread_affinity(std::thread &thread, unsigned cpu_index) {
 
 //////////////////////////////////////////////////////////////////////////////
 
-Computer::Computer(Array2D<real> data, OptimizationMode mode) : data(std::move(data)), mode(mode) {
+Computer::Computer(Array2D<real> data, unsigned cpu_threads, OptimizationMode mode) : data(std::move(data)), mode(mode) {
     atom_queue = std::make_shared<TaskQueue<BasicAtomPointer>>();
     task_queue = std::make_shared<TaskQueue<SpectrogramRequest>>();
     reset();
     if (mode == OPTIMIZATION_GLOBAL) {
-        for (unsigned i = 0; i < std::thread::hardware_concurrency(); ++i) {
+        for (unsigned i = 0; i < cpu_threads; ++i) {
             threads.emplace_back(ExtenderLoop(atom_queue));
-            set_thread_affinity(threads.back(), i);
+            set_thread_affinity(threads.back(), i % std::thread::hardware_concurrency());
         }
     }
 }

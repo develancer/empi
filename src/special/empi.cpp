@@ -4,11 +4,12 @@
  * See README.md and LICENCE for details.                 *
  **********************************************************/
 #include <algorithm>
+#include <cctype>
 #include <cmath>
-#include <fstream>
+#include <cstring>
 #include <iostream>
 #include <memory>
-#include <sstream>
+#include <numeric>
 #include <stdexcept>
 #include <thread>
 #include "Array.h"
@@ -17,18 +18,17 @@
 #include "Computer.h"
 #include "Configuration.h"
 #include "DeltaDictionary.h"
-#include "GaussianFamily.h"
+#include "Logger.h"
 #include "PinnedArray.h"
 #include "SignalReader.h"
-#ifdef HAVE_CUDA
-    #include "WorkerCUDA.h"
-#endif
-#include "WorkerFFTW.h"
 
-struct DecompositionSettings {
-    int iterationMax;
-    double residualEnergy;
-};
+#ifdef HAVE_CUDA
+
+#include "WorkerCUDA.h"
+
+#endif
+
+#include "WorkerFFTW.h"
 
 static std::vector<int> parseIntegerSubset(const std::string &string, int max) {
     std::string scString;
@@ -45,18 +45,17 @@ static std::vector<int> parseIntegerSubset(const std::string &string, int max) {
         } else if (status == 1 && start >= 1 && start <= max) {
             numbers.push_back(start);
         } else {
-            throw std::runtime_error("invalid subset specification");
+            throw std::runtime_error("Configuration contains invalid subset specification");
         }
     }
-    if (!numbers.size()) {
-        throw std::runtime_error("empty subset specification");
+    if (numbers.empty()) {
+        throw std::runtime_error("Configuration contains empty subset specification");
     }
     if (numbers.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
-        throw std::runtime_error("too large subset specification");
+        throw std::runtime_error("Configuration contains too large subset specification");
     }
     return numbers;
 }
-
 
 static double compute_total_energy(Array2D<double> data) {
     double sum2 = 0.0;
@@ -69,168 +68,164 @@ static double compute_total_energy(Array2D<double> data) {
     return sum2;
 }
 
-static void empi(const char *configFilePath, bool json_output_mode) {
-    std::unique_ptr<SignalReader> reader;
-    DecompositionSettings settings;
-
-    // legacy configuration START /////////////////////////////////////
-    Configuration legacyConfiguration;
-    legacyConfiguration.parse(configFilePath);
-
-    double energyError = atof(legacyConfiguration.at("energyError").c_str());
-    if (energyError <= 0.0 || energyError >= 1.0) {
-        throw std::runtime_error("invalidEnergyErrorValue");
-    }
-    double freqSampling = atof(legacyConfiguration.at("samplingFrequency").c_str());
-    if (freqSampling <= 0.0) {
-        throw std::runtime_error("invalidSamplingFrequency");
-    }
-
-    double scaleMin = 0.0, scaleMax = 0.0;
-    if (legacyConfiguration.has("minAtomScale")) {
-        scaleMin = atof(legacyConfiguration.at("minAtomScale").c_str()); // NOLINT atof is fine here
-        if (!std::isnormal(scaleMin) || scaleMin < 0) {
-            throw std::runtime_error("invalid minAtomScale");
-        }
-        scaleMin *= freqSampling;
-    }
-    if (legacyConfiguration.has("maxAtomScale")) {
-        scaleMax = atof(legacyConfiguration.at("maxAtomScale").c_str()); // NOLINT atof is fine here
-        if (!std::isnormal(scaleMax) || scaleMax < 0) {
-            throw std::runtime_error("invalid maxAtomScale");
-        }
-        scaleMax *= freqSampling;
-    }
-
-    double freqMax = legacyConfiguration.has("maxAtomFrequency")
-                     ? atof(legacyConfiguration.at("maxAtomFrequency").c_str()) / freqSampling : 0.5;
-    if (freqMax <= 0 || freqMax > 0.5) {
-        throw std::runtime_error("invalidMaxFrequency");
-    }
-
-    if (legacyConfiguration.has("maximalNumberOfIterations")) {
-        settings.iterationMax = atoi(legacyConfiguration.at("maximalNumberOfIterations").c_str());
-        if (settings.iterationMax <= 0) {
-            throw std::runtime_error("invalidMaximalNumberOfIterations");
-        }
-    } else {
-        settings.iterationMax = std::numeric_limits<int>::max();
-    }
-    if (legacyConfiguration.has("energyPercent")) {
-        settings.residualEnergy = 1 - 0.01 * atof(legacyConfiguration.at("energyPercent").c_str());
-        if (settings.residualEnergy < 0 || settings.residualEnergy >= 1.0) {
-            throw std::runtime_error("invalidEnergyPercentValue");
-        }
-    } else {
-        settings.residualEnergy = 0.0;
-    }
-
-    int channel_count = atoi(legacyConfiguration.at("numberOfChannels").c_str());
-    if (channel_count <= 0) {
-        throw std::runtime_error("invalidNumberOfChannels");
-    }
-    std::vector<int> selected_channels = parseIntegerSubset(legacyConfiguration.at("selectedChannels"), channel_count);
-
-    const std::string &pathToSignalFile = legacyConfiguration.at("nameOfDataFile");
-    if (legacyConfiguration.has("numberOfSamplesInEpoch")) {
-        int epochSize = atoi(legacyConfiguration.at("numberOfSamplesInEpoch").c_str());
-        if (epochSize <= 0) {
-            throw std::runtime_error("invalidNumberOfSamplesInEpoch");
-        }
-        if (legacyConfiguration.has("selectedEpochs")) {
-            std::vector<int> epochs = parseIntegerSubset(legacyConfiguration.at("selectedEpochs"), std::numeric_limits<int>::max() / epochSize);
-            if (epochs.empty()) {
-                throw std::runtime_error("noSelectedEpochs");
-            }
-            reader.reset(new SignalReaderForSelectedEpochs(pathToSignalFile.c_str(), channel_count, std::move(selected_channels), epochSize,
-                                                           std::move(epochs)));
+template<typename REAL>
+std::unique_ptr<SignalReader> create_signal_reader(const Configuration &configuration, const std::vector<int> &selected_channels) {
+    if (configuration.segment_size > 0) {
+        if (!configuration.segment_specs.empty()) {
+            std::vector<int> epochs = parseIntegerSubset(configuration.segment_specs, std::numeric_limits<int>::max() / configuration.segment_size);
+            return std::make_unique<SignalReaderForSelectedEpochs<REAL>>(
+                    configuration.input_file_path.c_str(),
+                    configuration.channel_count,
+                    selected_channels,
+                    configuration.segment_size,
+                    std::move(epochs)
+            );
         } else {
-            reader.reset(new SignalReaderForAllEpochs(pathToSignalFile.c_str(), channel_count, std::move(selected_channels), epochSize));
+            return std::make_unique<SignalReaderForAllEpochs<REAL>>(
+                    configuration.input_file_path.c_str(),
+                    configuration.channel_count,
+                    selected_channels,
+                    configuration.segment_size
+            );
         }
     } else {
-        if (legacyConfiguration.has("selectedEpochs")) {
-            // entry for numberOfSamplesInEpoch is missing
-            legacyConfiguration.at("numberOfSamplesInEpoch");
+        return std::make_unique<SignalReaderForWholeSignal<REAL>>(
+                configuration.input_file_path.c_str(),
+                configuration.channel_count,
+                selected_channels
+        );
+    }
+}
+
+/**
+ * Check whether given string ends with given suffix, if compared without case-sensitivity.
+ */
+static bool ci_ends_with(const std::string &string, const std::string &suffix) {
+    const size_t string_size = string.size();
+    const size_t suffix_size = suffix.size();
+    if (string_size < suffix_size) {
+        return false;
+    }
+    const size_t offset = string_size - suffix_size;
+    for (size_t i = 0; i < suffix_size; ++i) {
+        if (std::tolower(string[offset + i]) != std::tolower(suffix[i])) {
+            return false;
         }
-        reader.reset(new SignalReaderForWholeSignal(pathToSignalFile.c_str(), channel_count, std::move(selected_channels)));
+    }
+    return true;
+}
+
+static int empi(const Configuration &configuration) {
+    std::unique_ptr<SignalReader> reader;
+    Logger::info("Starting empi");
+
+    double energyError = configuration.energy_error;
+    if (energyError <= 0.0 || energyError >= 1.0) {
+        throw std::runtime_error("Energy error parameter is invalid");
+    }
+    double freqSampling = configuration.freq_sampling;
+    if (freqSampling <= 0.0) {
+        throw std::runtime_error("Sampling frequency is invalid");
+    }
+
+    int channel_count = configuration.channel_count;
+    if (channel_count <= 0) {
+        throw std::runtime_error("Number of channels is invalid");
+    }
+    std::vector<int> selected_channels;
+    if (configuration.channel_specs.empty()) {
+        selected_channels.resize(channel_count);
+        std::iota(selected_channels.begin(), selected_channels.end(), 1);
+    } else {
+        selected_channels = parseIntegerSubset(configuration.channel_specs, channel_count);
+    }
+
+    if (configuration.extractor != extractorSingleChannel && configuration.channel_count == 1) {
+        throw std::runtime_error("MMP does not make sense with only one channel");
+    }
+    if (configuration.envelopes.empty() && !configuration.include_delta_atoms) {
+        throw std::runtime_error("At least one atom type must be selected");
+    }
+
+    if (configuration.input64) {
+        reader = create_signal_reader<double>(configuration, selected_channels);
+    } else {
+        reader = create_signal_reader<float>(configuration, selected_channels);
     }
 
     const int real_channel_count = reader->get_epoch_channel_count();
 
-    Extractor extractor;
-    std::string typeOfMP = legacyConfiguration.at("MP");
-    std::transform(typeOfMP.begin(), typeOfMP.end(), typeOfMP.begin(), tolower);
-    if (typeOfMP == "smp") {
+    if (channel_count > 1 && configuration.extractor == extractorSingleChannel) {
         reader = std::make_unique<SignalReaderSingleChannel>(std::move(reader));
-        extractor = extractorVariablePhase;
-    } else if (typeOfMP == "mmp1") {
-        extractor = extractorConstantPhase;
-    } else if (typeOfMP == "mmp3") {
-        extractor = extractorVariablePhase;
-    } else {
-        throw std::runtime_error("unsupportedDecompositionType");
     }
 
     PinnedArray2D<double> data(reader->get_epoch_channel_count(), reader->get_epoch_sample_count());
     Array2D<double> initial(real_channel_count, reader->get_epoch_sample_count());
-    Computer computer(data, OPTIMIZATION_GLOBAL);
+    Computer computer(data, configuration.cpu_threads, configuration.optimization_mode);
 
-    if (data.height() == 1) {
-        extractor = extractorSingleChannel;
+    if (configuration.include_delta_atoms) {
+        computer.add_dictionary(std::make_unique<DeltaDictionary>(data));
     }
 
-    auto family = std::make_shared<GaussianFamily>();
+    std::list<BlockDictionaryStructure> structures;
+    for (const auto &kv : configuration.envelopes) {
+        const auto &e = kv.second;
 
-    if (scaleMin == 0.0) {
-        // defaults to the shortest scale for which the time step does not go below 1 sample
-        const double dt_scale = family->inv_time_integral(1 - energyError);
-        scaleMin = 1 / dt_scale;
+        double scale_min = e.scale_min;
+        if (scale_min == 0.0) {
+            // defaults to the shortest scale for which the time step does not go below 1 sample
+            const double dt_scale = e.family->inv_time_integral(1 - energyError);
+            scale_min = 1 / dt_scale;
+        }
+
+        double scale_max = e.scale_max;
+        if (scale_max == 0.0) {
+            // defaults to the epoch length
+            scale_max = static_cast<double>(reader->get_epoch_sample_count());
+            // TODO if the entire envelope needs to fit in epoch, divide by family->max_arg()-family->min_arg()
+        }
+
+        structures.emplace_back(e.family, energyError, scale_min, scale_max, e.freq_max);
     }
-    if (scaleMax == 0.0) {
-        // defaults to the epoch length
-        scaleMax = static_cast<double>(reader->get_epoch_sample_count());
-        // TODO if the entire envelope needs to fit in epoch, divide by family->max_arg()-family->min_arg()
+
+    std::set<int> transform_sizes;
+    for (const auto &structure : structures) {
+        transform_sizes.merge(structure.get_transform_sizes());
     }
 
-    BlockDictionaryStructure structure(family, energyError, scaleMin, scaleMax, freqMax);
-    const std::set<int> transform_sizes = structure.get_transform_sizes();
-    auto primary_calculator = std::make_unique<WorkerFFTW>(data.height(), transform_sizes);
+    if (!transform_sizes.empty()) {
+        auto primary_calculator = std::make_unique<WorkerFFTW>(data.height(), transform_sizes);
+        for (const auto &structure : structures) {
+            computer.add_dictionary(std::make_unique<BlockDictionary>(structure, data, configuration.extractor, *primary_calculator));
+        }
 
-    auto dictionary = std::make_unique<BlockDictionary>(structure, data, extractor, *primary_calculator);
-    size_t total_atom_count = dictionary->get_atom_count();
-    computer.add_dictionary(std::make_unique<DeltaDictionary>(data));
-    computer.add_dictionary(std::move(dictionary));
-    std::list<ProtoRequest> proto_requests = computer.get_proto_requests();
+        std::list<ProtoRequest> proto_requests = computer.get_proto_requests();
 
-    #ifdef HAVE_CUDA
-    computer.add_calculator(std::make_unique<WorkerCUDA>(data.height(), proto_requests), true);
-    #endif
-    for (unsigned i = 1; i < std::thread::hardware_concurrency(); ++i) {
-        computer.add_calculator(std::make_unique<WorkerFFTW>(*primary_calculator));
+#ifdef HAVE_CUDA
+        for (int device : configuration.gpu_devices) {
+            computer.add_calculator(std::make_unique<WorkerCUDA>(data.height(), proto_requests, device), true);
+        }
+#endif
+        for (unsigned i = 1; i < configuration.cpu_threads; ++i) {
+            computer.add_calculator(std::make_unique<WorkerFFTW>(*primary_calculator));
+        }
+        computer.add_calculator(std::move(primary_calculator));
     }
-    computer.add_calculator(std::move(primary_calculator));
-
-    // extracting base name of input file
-    std::string prefix = pathToSignalFile;
-    std::string::size_type lastSlash = prefix.find_last_of('/');
-    if (lastSlash != std::string::npos) {
-        prefix = prefix.substr(lastSlash + 1);
-    }
-    prefix = prefix.substr(0, prefix.find_last_of('.'));
-    typeOfMP.resize(3);
-
-    std::string pathToBookFile = legacyConfiguration.at("nameOfOutputDirectory") + "/" + prefix + "_" + typeOfMP;
 
     std::unique_ptr<BookWriter> book_writer;
-    if (json_output_mode) {
-        book_writer = std::make_unique<JsonBookWriter>((pathToBookFile + ".json").c_str());
+    if (ci_ends_with(configuration.output_file_path, ".json")) {
+        book_writer = std::make_unique<JsonBookWriter>(configuration.output_file_path.c_str());
     } else {
-        book_writer = std::make_unique<SQLiteBookWriter>((pathToBookFile + ".db").c_str());
+        book_writer = std::make_unique<SQLiteBookWriter>(configuration.output_file_path.c_str());
     }
 
     std::vector<std::list<ExportedAtom>> atoms(real_channel_count);
 
-    int epochs_processed = 0;
+    const size_t epochs_all = reader->get_epoch_count();
+    size_t epochs_processed = 0;
+    int old_progress = -1;
+
+    int iterations_max = configuration.iterations_max ? configuration.iterations_max : std::numeric_limits<int>::max();
     while (auto epoch_index = reader->read(data)) {
         for (int c = 0; c < data.height(); ++c) {
             std::copy(data[c], data[c] + data.length(), initial[epoch_index->channel_offset + c]);
@@ -238,74 +233,66 @@ static void empi(const char *configFilePath, bool json_output_mode) {
         computer.reset();
         const double initial_energy = compute_total_energy(data);
         if (!epoch_index->channel_offset) {
-            // first channel of single-channel decomposition OR multi-channel decomposition
-            std::cout << "START" << '\t' << ++epochs_processed << '\t' << real_channel_count << '\t' << settings.iterationMax << '\t'
-                      << 100 * (1 - settings.residualEnergy) << std::endl;
+            Logger::info("Starting segment #%d", epoch_index->epoch + 1);
         }
-        if (data.height() == 1) {
-            // single-channel decomposition
-            std::cout << "CHANNEL" << '\t' << epoch_index->channel_offset + 1 << std::endl;
-        }
-
-        for (int i = 0; i < settings.iterationMax; ++i) {
+        for (int i = 0; i < iterations_max; ++i) {
             auto atom = computer.get_next_atom();
-            std::list<ExportedAtom>* atoms_per_channel = atoms.data() + epoch_index->channel_offset;
+            if (!atom) {
+                break;
+            }
+            std::list<ExportedAtom> *atoms_per_channel = atoms.data() + epoch_index->channel_offset;
             atom->export_atom(atoms_per_channel);
-//          for (int c=0; c<data.height(); ++c) {
-//              const ExportedAtom& exported_atom = atoms_per_channel[c].back();
-//              if (exported_atom.scale < scaleMin - 1.0e-6 || exported_atom.scale > scaleMax + 1.0e-6) {
-//                  fprintf(stderr, "found atom with scale=%lf\n", exported_atom.scale);
-//              }
-//          }
 
             double residual_energy = compute_total_energy(data);
-            double energy_progress = 100 * (1.0 - residual_energy / initial_energy);
-            double iteration_progress = 100.0 * i / settings.iterationMax;
-            std::cout << "ATOM" << '\t' << i << '\t' << total_atom_count
-                      << '\t' << energy_progress << '\t' << std::max(energy_progress, iteration_progress) << std::endl;
-            if (residual_energy < settings.residualEnergy * initial_energy) {
+            double energy_progress = std::min(1.0, std::log(residual_energy / initial_energy) / std::log(configuration.energy_max_residual));
+            double this_epoch_progress = std::max(
+                    energy_progress,
+                    static_cast<double>(i + 1) / static_cast<double>(iterations_max)
+            );
+            int progress = Types::floor<int>(100.0 * (static_cast<double>(epochs_processed) + this_epoch_progress) / static_cast<double>(epochs_all));
+            if (progress != old_progress) {
+                std::cout << progress << "% completed... (segment #" << (epoch_index->epoch + 1);
+                if (data.height() != real_channel_count) {
+                    std::cout << " channel #" << selected_channels[epoch_index->channel_offset];
+                }
+                std::cout << " " << Types::floor<int>(100.0 * this_epoch_progress) << "% completed with " << (i + 1) << " atoms)" << std::endl;
+                old_progress = progress;
+            }
+            if (energy_progress == 1.0) {
                 break;
             }
         }
 
         if (epoch_index->channel_offset + data.height() == real_channel_count) {
+            Logger::info("Finished segment #%d, writing to file", epoch_index->epoch + 1);
             book_writer->write(initial, epoch_index->epoch, freqSampling, atoms);
+            Logger::info("Segment #%d written to file", epoch_index->epoch + 1);
             for (auto &list : atoms) {
                 list.clear();
             }
         }
+        ++epochs_processed;
     }
 
     book_writer->finalize();
-    std::cout << " END" << std::endl;
-}
-
-static void exception(const char *message) {
-    std::cout << "ERROR\t" << message << std::endl;
-    exit(EXIT_FAILURE);
+    Logger::info("Decomposition finished successfully");
+    return 0;
 }
 
 int main(int argc, char **argv) {
-    const char *config_file_path = nullptr;
-    bool json_output_mode = false;
-    for (int i = 1; i < argc; ++i) {
-        const char *arg = argv[i];
-        if (arg[0] && arg[0] != '-') {
-            config_file_path = arg;
-        } else if (arg[0] == '-' && arg[1] == 'j' && !arg[2]) {
-            json_output_mode = true;
-        }
+    Configuration configuration;
+    if (int error_code; !configuration.parse(argc, argv, error_code)) {
+        return error_code;
     }
-    if (!config_file_path) {
-        fprintf(stderr, "USAGE: %s [-j] path_to_config_file\n", argv[0]);
-        return 1;
-    }
+
     try {
-        empi(config_file_path, json_output_mode);
+        return empi(configuration);
     } catch (const std::bad_alloc &e) {
-        exception("insufficient memory");
+        Logger::error("Could not continue due to insufficient memory");
+    } catch (const std::logic_error &e) {
+        Logger::internal_error(e.what());
     } catch (const std::exception &e) {
-        exception(e.what());
+        Logger::error(e.what());
     }
-    exit(EXIT_SUCCESS);
+    return EXIT_FAILURE;
 }

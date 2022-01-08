@@ -13,6 +13,7 @@
 #include "BlockAtom.h"
 #include "BlockAtomObjective.h"
 #include "Corrector.h"
+#include "Logger.h"
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -41,9 +42,10 @@ ExtendedAtomPointer BlockAtom::extend(bool allow_optimization) {
         std::array<double, 3> step{0.5, 0.5, 0.5};
         auto result = nelder_mead<double, 3>(objective, array, 1.0e-6, step);
         if (result.ifault) {
-            throw std::runtime_error("could not minimize"); // TODO better
+            Logger::info("Optimization could not converge");
+        } else {
+            array = result.xmin;
         }
-        array = result.xmin;
     }
 
     double norm;

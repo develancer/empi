@@ -25,8 +25,9 @@ public:
      *
      * @param channel_count number of channels in the signal
      * @param proto_requests list of request templates that will be passed to compute() later on
+     * @param device ID of the device on which all calculations should be performed
      */
-    WorkerCUDA(int channel_count, const std::list<ProtoRequest>& proto_requests);
+    WorkerCUDA(int channel_count, const std::list<ProtoRequest>& proto_requests, int device);
 
     /**
      * Compute a spectrogram of a given signal, according to the given specification.
