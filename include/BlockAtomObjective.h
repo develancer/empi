@@ -8,6 +8,7 @@
 
 #include <array>
 #include <memory>
+#include <vector>
 #include "Array.h"
 #include "BlockAtomBase.h"
 #include "Extractor.h"
