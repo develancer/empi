@@ -9,6 +9,12 @@
 #include "Array.h"
 
 /**
+ * Disable CUDA-specific routines for memory allocation.
+ * Call to this method should be performed before the first call to cuda_host_malloc.
+ */
+void cuda_host_disable();
+
+/**
  * Allocate pinned memory area of a given size.
  * This defaults to ordinary malloc in case of CUDA-less compilation.
  *
