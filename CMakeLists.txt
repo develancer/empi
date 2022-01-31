@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.12)
 project(empi CXX C)
 set(CMAKE_CXX_STANDARD 17)
+
 enable_testing()
 
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
@@ -46,7 +47,7 @@ if(WITH_CUDA)
     target_link_libraries(empi empi-gpu cufft_static culibos)
 else()
     target_link_libraries(empi empi-fake-gpu)
-    set_property(TARGET empi PROPERTY LINK_FLAGS -pthread)
+    set_property(TARGET empi PROPERTY LINK_FLAGS "-Wl,--whole-archive -lrt -lpthread -Wl,--no-whole-archive")
 endif()
 
 if(UNIX)
