@@ -116,9 +116,11 @@ static bool ci_ends_with(const std::string &string, const std::string &suffix) {
 }
 
 static int empi(const Configuration &configuration) {
+#ifdef HAVE_CUDA
     if (configuration.gpu_devices.empty()) {
         cuda_host_disable();
     }
+#endif
 
     std::unique_ptr<SignalReader> reader;
     Logger::info("Starting empi");
