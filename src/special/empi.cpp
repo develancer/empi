@@ -271,7 +271,8 @@ static int empi(const Configuration &configuration) {
 
         if (epoch_index->channel_offset + data.height() == real_channel_count) {
             Logger::info("Finished segment #%d, writing to file", epoch_index->epoch + 1);
-            book_writer->write(initial, epoch_index->epoch, freqSampling, atoms);
+            const index_t segment_offset = epoch_index->epoch * reader->get_epoch_sample_count();
+            book_writer->write(initial, segment_offset, freqSampling, atoms);
             Logger::info("Segment #%d written to file", epoch_index->epoch + 1);
             for (auto &list : atoms) {
                 list.clear();
