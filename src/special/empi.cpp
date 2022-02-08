@@ -269,7 +269,8 @@ static void empi(const char *configFilePath, bool json_output_mode) {
         }
 
         if (epoch_index->channel_offset + data.height() == real_channel_count) {
-            book_writer->write(initial, epoch_index->epoch, freqSampling, atoms);
+            const index_t segment_offset = epoch_index->epoch * reader->get_epoch_sample_count();
+            book_writer->write(initial, segment_offset, freqSampling, atoms);
             for (auto &list : atoms) {
                 list.clear();
             }
