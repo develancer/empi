@@ -40,6 +40,10 @@ std::string check_positive_number(const std::string &input) {
 
 //////////////////////////////////////////////////////////////////////////////
 
+int Configuration::optimization_max_iterations = 10000;
+
+double Configuration::optimization_target = 1.0e-5;
+
 Configuration::Configuration() : cpu_threads(std::thread::hardware_concurrency()) {}
 
 bool Configuration::parse(int argc, char **argv, int &error_code) {
@@ -83,6 +87,10 @@ bool Configuration::parse(int argc, char **argv, int &error_code) {
     app.add_flag("--input64", input64, "Read input data as double-precision (64-bit) floating point values (default: read as 32-bit values)");
     app.add_flag("--mmp1", mmp1, "Use multi-variate decomposition with constant phase across channels");
     app.add_flag("--mmp3", mmp3, "Use multi-variate decomposition with variable phase across channels");
+    app.add_option("--opt-max-iter", optimization_max_iterations, "Maximum number of iterations for local parameter optimization")
+            ->capture_default_str();
+    app.add_option("--opt-target", optimization_target, "Target accuracy (relative to the initial dictionary size) for local parameter optimization")
+            ->capture_default_str();
     app.add_option("--segment-size", segment_size, "Number of samples in each segment (default: all samples)");
     app.add_option("--segments", segment_specs, "Range of signal segments, e.g. 1-100,201-300 (default: all)");
 

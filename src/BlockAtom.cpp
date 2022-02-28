@@ -12,6 +12,7 @@
 #include "Atom.h"
 #include "BlockAtom.h"
 #include "BlockAtomObjective.h"
+#include "Configuration.h"
 #include "Corrector.h"
 #include "Logger.h"
 
@@ -40,9 +41,16 @@ ExtendedAtomPointer BlockAtom::extend(bool allow_optimization) {
         }
 
         std::array<double, 3> step{0.5, 0.5, 0.5};
-        auto result = nelder_mead<double, 3>(objective, array, 1.0e-6, step);
+        auto result = nelder_mead<double, 3>(
+                objective,
+                array,
+                Configuration::optimization_target,
+                step,
+                1,
+                Configuration::optimization_max_iterations
+        );
         if (result.ifault) {
-            Logger::info("Optimization could not converge");
+            Logger::info("Parameter optimization could not converge. Unless it happens very often, it should not affect the decomposition. Tweaking --opt-max-iter and --opt-target options might help.");
         } else {
             array = result.xmin;
         }

@@ -116,9 +116,19 @@ struct Configuration {
     int iterations_max = 0; // 0 means infinite
 
     /**
+     * Maximum number of iterations for local parameter optimization.
+     */
+    static int optimization_max_iterations;
+
+    /**
      * Parameter optimization mode.
      */
     OptimizationMode optimization_mode = OPTIMIZATION_GLOBAL;
+
+    /**
+     * Target simplex size (relative to the initial simplex size of 1) for local parameter optimization.
+     */
+    static double optimization_target;
 
     /**
      * Path for the output decomposition file.
