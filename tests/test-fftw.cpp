@@ -6,14 +6,14 @@
 #include <random>
 #include "Array.h"
 #include "Testing.h"
-#include "WorkerDummy.h"
-#include "WorkerFFTW.h"
+#include "SpectrogramCalculatorDummy.h"
+#include "SpectrogramCalculatorFFTW.h"
 
 double rand_float() {
     return (double) rand() / (double) RAND_MAX - 0.5;
 }
 
-void benchmark(Worker &calculator, const SpectrogramRequest &request, const ExtractedMaximum *reference_maxima) {
+void benchmark(SpectrogramCalculator &calculator, const SpectrogramRequest &request, const ExtractedMaximum *reference_maxima) {
     calculator.compute(request);
 
     if (reference_maxima) {
@@ -67,8 +67,8 @@ void run_test(Extractor extractor) {
     Array1D<ExtractedMaximum> maxima_dummy(request.how_many);
     Array1D<ExtractedMaximum> maxima_fftw(request.how_many);
 
-    WorkerFFTW fftw(channel_count, {1024});
-    WorkerDummy dummy;
+    SpectrogramCalculatorFFTW fftw(channel_count, {1024});
+    SpectrogramCalculatorDummy dummy;
 
     request.maxima = maxima_dummy.get();
     benchmark(dummy, request, nullptr);

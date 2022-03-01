@@ -8,7 +8,6 @@
 #include <thread>
 #include "CLI11.hpp"
 #include "Configuration.h"
-#include "Family.h"
 #include "GaussianFamily.h"
 
 //////////////////////////////////////////////////////////////////////////////
@@ -75,7 +74,9 @@ bool Configuration::parse(int argc, char **argv, int &error_code) {
     app.add_option("-r", energy_max_residual, "Energy of the residual as a fraction of the total signal energy")
             ->check(check_positive_number)->capture_default_str();
     app.add_option("--channels", channel_specs, "Range of channels to process, e.g. 1-3,5,8-9 (default: all)");
-    app.add_option("--cpu-threads", cpu_threads, "Number of CPU threads to use")
+    app.add_option("--cpu-threads", cpu_threads, "Number of CPU threads for each worker")
+            ->check(check_positive_int)->capture_default_str();
+    app.add_option("--cpu-workers", cpu_workers, "Number of independent CPU workers to run")
             ->check(check_positive_int)->capture_default_str();
     app.add_flag("--delta", include_delta_atoms, "Include delta-type atoms");
     app.add_option("--energy-error", energy_error, "Epsilon-squared parameter corresponding to the dictionary size")

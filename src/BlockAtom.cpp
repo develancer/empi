@@ -8,8 +8,6 @@
 #include <memory>
 #include <vector>
 #include "nelder_mead.h"
-#include "Array.h"
-#include "Atom.h"
 #include "BlockAtom.h"
 #include "BlockAtomObjective.h"
 #include "Configuration.h"

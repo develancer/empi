@@ -7,28 +7,23 @@
 #include <cctype>
 #include <cmath>
 #include <cstring>
-#include <iostream>
 #include <memory>
 #include <numeric>
 #include <stdexcept>
-#include <thread>
-#include "Array.h"
 #include "BlockDictionary.h"
 #include "BookWriter.h"
-#include "Computer.h"
+#include "BufferedWriter.h"
+#include "Worker.h"
 #include "Configuration.h"
-#include "DeltaDictionary.h"
 #include "Logger.h"
 #include "PinnedArray.h"
+#include "WorkerLoop.h"
 #include "SignalReader.h"
+#include "SpectrogramCalculatorFFTW.h"
 
 #ifdef HAVE_CUDA
-
-#include "WorkerCUDA.h"
-
+#include "SpectrogramCalculatorCUDA.h"
 #endif
-
-#include "WorkerFFTW.h"
 
 static std::vector<int> parseIntegerSubset(const std::string &string, int max) {
     std::string scString;
@@ -57,19 +52,9 @@ static std::vector<int> parseIntegerSubset(const std::string &string, int max) {
     return numbers;
 }
 
-static double compute_total_energy(Array2D<double> data) {
-    double sum2 = 0.0;
-    for (int h = 0; h < data.height(); ++h) {
-        for (index_t i = 0; i < data.length(); ++i) {
-            const double value = data[h][i];
-            sum2 += value * value;
-        }
-    }
-    return sum2;
-}
 
 template<typename REAL>
-std::unique_ptr<SignalReader> create_signal_reader(const Configuration &configuration, const std::vector<int> &selected_channels) {
+std::shared_ptr<SignalReader> create_signal_reader(const Configuration &configuration, const std::vector<int> &selected_channels) {
     if (configuration.segment_size > 0) {
         if (!configuration.segment_specs.empty()) {
             std::vector<int> epochs = parseIntegerSubset(configuration.segment_specs, std::numeric_limits<int>::max() / configuration.segment_size);
@@ -122,7 +107,6 @@ static int empi(const Configuration &configuration) {
     }
 #endif
 
-    std::unique_ptr<SignalReader> reader;
     Logger::info("Starting empi");
 
     double energyError = configuration.energy_error;
@@ -153,24 +137,23 @@ static int empi(const Configuration &configuration) {
         throw std::runtime_error("At least one atom type must be selected");
     }
 
+    std::shared_ptr<SignalReader> reader;
     if (configuration.input64) {
         reader = create_signal_reader<double>(configuration, selected_channels);
     } else {
         reader = create_signal_reader<float>(configuration, selected_channels);
     }
 
-    const int real_channel_count = reader->get_epoch_channel_count();
+    std::unique_ptr<BookWriter> book_writer;
+    if (ci_ends_with(configuration.output_file_path, ".json")) {
+        book_writer = std::make_unique<JsonBookWriter>(freqSampling, reader->get_epoch_sample_count(), configuration.output_file_path.c_str());
+    } else {
+        book_writer = std::make_unique<SQLiteBookWriter>(freqSampling, reader->get_epoch_sample_count(), configuration.output_file_path.c_str());
+    }
+    auto buffered_writer = std::make_shared<BufferedWriter>(reader->get_epoch_channel_count(), reader->get_epoch_count(), std::move(book_writer));
 
     if (channel_count > 1 && configuration.extractor == extractorSingleChannel) {
-        reader = std::make_unique<SignalReaderSingleChannel>(std::move(reader));
-    }
-
-    PinnedArray2D<double> data(reader->get_epoch_channel_count(), reader->get_epoch_sample_count());
-    Array2D<double> initial(real_channel_count, reader->get_epoch_sample_count());
-    Computer computer(data, configuration.cpu_threads, configuration.optimization_mode);
-
-    if (configuration.include_delta_atoms) {
-        computer.add_dictionary(std::make_unique<DeltaDictionary>(data));
+        reader = std::make_shared<SignalReaderSingleChannel>(std::move(reader));
     }
 
     std::list<BlockDictionaryStructure> structures;
@@ -198,90 +181,24 @@ static int empi(const Configuration &configuration) {
     for (const auto &structure : structures) {
         transform_sizes.merge(structure.get_transform_sizes());
     }
-
+    std::unique_ptr<SpectrogramCalculatorFFTW> primary_calculator;
     if (!transform_sizes.empty()) {
-        auto primary_calculator = std::make_unique<WorkerFFTW>(data.height(), transform_sizes);
-        for (const auto &structure : structures) {
-            computer.add_dictionary(std::make_unique<BlockDictionary>(structure, data, configuration.extractor, *primary_calculator));
-        }
-
-        std::list<ProtoRequest> proto_requests = computer.get_proto_requests();
-
-#ifdef HAVE_CUDA
-        for (int device : configuration.gpu_devices) {
-            computer.add_calculator(std::make_unique<WorkerCUDA>(data.height(), proto_requests, device), true);
-        }
-#endif
-        for (unsigned i = 1; i < configuration.cpu_threads; ++i) {
-            computer.add_calculator(std::make_unique<WorkerFFTW>(*primary_calculator));
-        }
-        computer.add_calculator(std::move(primary_calculator));
+        primary_calculator = std::make_unique<SpectrogramCalculatorFFTW>(reader->get_epoch_channel_count(), transform_sizes);
     }
 
-    std::unique_ptr<BookWriter> book_writer;
-    if (ci_ends_with(configuration.output_file_path, ".json")) {
-        book_writer = std::make_unique<JsonBookWriter>(configuration.output_file_path.c_str());
-    } else {
-        book_writer = std::make_unique<SQLiteBookWriter>(configuration.output_file_path.c_str());
+    auto progress = std::make_shared<Progress>(reader->get_epoch_count());
+
+    std::list<Thread> worker_threads;
+    for (unsigned i=1; i<configuration.cpu_workers; ++i) {
+        worker_threads.emplace_back(WorkerLoop(reader, buffered_writer, progress, std::make_unique<SpectrogramCalculatorFFTW>(*primary_calculator), structures, configuration));
+    }
+    worker_threads.emplace_back(WorkerLoop(reader, buffered_writer, progress, std::move(primary_calculator), structures, configuration));
+
+    buffered_writer->finalize();
+    for (auto& thread : worker_threads) {
+        thread.join();
     }
 
-    std::vector<std::list<ExportedAtom>> atoms(real_channel_count);
-
-    const size_t epochs_all = reader->get_epoch_count();
-    size_t epochs_processed = 0;
-    int old_progress = -1;
-
-    int iterations_max = configuration.iterations_max ? configuration.iterations_max : std::numeric_limits<int>::max();
-    while (auto epoch_index = reader->read(data)) {
-        for (int c = 0; c < data.height(); ++c) {
-            std::copy(data[c], data[c] + data.length(), initial[epoch_index->channel_offset + c]);
-        }
-        computer.reset();
-        const double initial_energy = compute_total_energy(data);
-        if (!epoch_index->channel_offset) {
-            Logger::info("Starting segment #%d", epoch_index->epoch + 1);
-        }
-        for (int i = 0; i < iterations_max; ++i) {
-            auto atom = computer.get_next_atom();
-            if (!atom) {
-                break;
-            }
-            std::list<ExportedAtom> *atoms_per_channel = atoms.data() + epoch_index->channel_offset;
-            atom->export_atom(atoms_per_channel);
-
-            double residual_energy = compute_total_energy(data);
-            double energy_progress = std::min(1.0, std::log(residual_energy / initial_energy) / std::log(configuration.energy_max_residual));
-            double this_epoch_progress = std::max(
-                    energy_progress,
-                    static_cast<double>(i + 1) / static_cast<double>(iterations_max)
-            );
-            int progress = Types::floor<int>(100.0 * (static_cast<double>(epochs_processed) + this_epoch_progress) / static_cast<double>(epochs_all));
-            if (progress != old_progress) {
-                std::cout << progress << "% completed... (segment #" << (epoch_index->epoch + 1);
-                if (data.height() != real_channel_count) {
-                    std::cout << " channel #" << selected_channels[epoch_index->channel_offset];
-                }
-                std::cout << " " << Types::floor<int>(100.0 * this_epoch_progress) << "% completed with " << (i + 1) << " atoms)" << std::endl;
-                old_progress = progress;
-            }
-            if (energy_progress == 1.0) {
-                break;
-            }
-        }
-
-        if (epoch_index->channel_offset + data.height() == real_channel_count) {
-            Logger::info("Finished segment #%d, writing to file", epoch_index->epoch + 1);
-            const index_t segment_offset = epoch_index->epoch * reader->get_epoch_sample_count();
-            book_writer->write(initial, segment_offset, freqSampling, atoms);
-            Logger::info("Segment #%d written to file", epoch_index->epoch + 1);
-            for (auto &list : atoms) {
-                list.clear();
-            }
-        }
-        ++epochs_processed;
-    }
-
-    book_writer->finalize();
     Logger::info("Decomposition finished successfully");
     return 0;
 }

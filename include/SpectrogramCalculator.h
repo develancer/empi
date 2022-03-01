@@ -3,22 +3,24 @@
  *   Enhanced Matching Pursuit Implementation (empi)      *
  * See README.md and LICENCE for details.                 *
  **********************************************************/
-#ifndef EMPI_WORKER_DUMMY_H
-#define EMPI_WORKER_DUMMY_H
+#ifndef EMPI_SPECTROGRAM_CALCULATOR_H
+#define EMPI_SPECTROGRAM_CALCULATOR_H
 
-#include "Worker.h"
+#include "SpectrogramRequest.h"
 
 /**
- * Dummy short-time Fourier transform calculator, used only for testing purposes.
+ * Interface for objects calculating spectrograms (short-time Fourier transforms) of real signals.
  */
-class WorkerDummy : public Worker {
+class SpectrogramCalculator {
 public:
     /**
      * Compute a spectrogram of a given signal, according to the given specification.
      *
      * @param request specification for the spectrogram to be computed
      */
-    void compute(const SpectrogramRequest &request) final;
+    virtual void compute(const SpectrogramRequest &request) = 0;
+
+    virtual ~SpectrogramCalculator() = default;
 };
 
-#endif //EMPI_WORKER_DUMMY_H
+#endif //EMPI_SPECTROGRAM_CALCULATOR_H

@@ -48,7 +48,7 @@ class BlockAtomCacheSlot {
     size_t key;
 
 public:
-    BlockAtomCacheSlot(std::shared_ptr<BlockAtomCache> cache, size_t key);
+    BlockAtomCacheSlot(const std::shared_ptr<BlockAtomCache>& cache, size_t key);
 
     [[nodiscard]] std::shared_ptr<BlockExtendedAtom> get() const;
 

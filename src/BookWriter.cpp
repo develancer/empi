@@ -19,14 +19,14 @@ void setBE(X& z, T t) {
 
 template<typename T>
 void setBE(uint32_t &z, T t) {
-    const uint32_t x = static_cast<uint32_t>(t);
+    const auto x = static_cast<uint32_t>(t);
     z = (x >> 24u) | ((x >> 8u) & 0x0000ff00u) | ((x << 8u) & 0x00ff0000u) | (x << 24u);
 }
 
 template<typename T>
 void setBE(float &z, T t) {
-    const float x = static_cast<float>(t);
-    const uint32_t *p = reinterpret_cast<const uint32_t *>(&x);
+    const auto x = static_cast<float>(t);
+    const auto *p = reinterpret_cast<const uint32_t *>(&x);
     setBE(*reinterpret_cast<uint32_t *>(&z), *p);
 }
 
@@ -34,12 +34,13 @@ void setBE(float &z, T t) {
 
 //////////////////////////////////////////////////////////////////////////////
 
-BookWriter::BookWriter()
-        : total_segments_written(0) {}
+BookWriter::BookWriter(double freq_sampling, index_t epoch_sample_count)
+        : freq_sampling(freq_sampling), epoch_sample_count(epoch_sample_count) {}
 
 //////////////////////////////////////////////////////////////////////////////
 
-FileBackedBookWriter::FileBackedBookWriter(const std::string &path_to_book_file) : file(path_to_book_file.c_str(), "wb") {}
+FileBackedBookWriter::FileBackedBookWriter(double freq_sampling, index_t epoch_sample_count, const std::string &path_to_book_file)
+: BookWriter(freq_sampling, epoch_sample_count), file(path_to_book_file.c_str(), "wb") {}
 
 void FileBackedBookWriter::finalize() {
     fflush(file.get());
@@ -52,10 +53,11 @@ void JsonBookWriter::finalize() {
     FileBackedBookWriter::finalize();
 }
 
-void JsonBookWriter::write(Array2D<double> data, index_t segment_offset, double freq_sampling, const std::vector<std::list<ExportedAtom>> &atoms) {
+void JsonBookWriter::write(Array2D<double> data, EpochIndex epoch, const std::vector<std::list<ExportedAtom>> &atoms) {
     const int C = data.height();
-    const int N = data.length();
-    const double segment_offset_s = segment_offset / freq_sampling;
+    const index_t N = data.length();
+    const index_t segment_offset = epoch.epoch_offset * epoch_sample_count;
+    const double segment_offset_s = static_cast<double>(segment_offset) / freq_sampling;
 
     if (!total_segments_written) {
         fputs("{\n", file.get());
@@ -65,7 +67,7 @@ void JsonBookWriter::write(Array2D<double> data, index_t segment_offset, double 
     } else {
         fputs("},{\n\n", file.get());
     }
-    fprintf(file.get(), "\"sample_count\": %d,\n", N);
+    fprintf(file.get(), "\"sample_count\": %ld,\n", N);
     fprintf(file.get(), "\"segment_length_s\": %.15lg,\n", N / freq_sampling);
     fprintf(file.get(), "\"segment_offset_s\": %.15lg,\n", segment_offset_s);
     fputs("\"channels\": [{\n", file.get());
@@ -111,7 +113,8 @@ void JsonBookWriter::write(Array2D<double> data, index_t segment_offset, double 
 
 //////////////////////////////////////////////////////////////////////////////
 
-SQLiteBookWriter::SQLiteBookWriter(const std::string &path_to_book_file) {
+SQLiteBookWriter::SQLiteBookWriter(double freq_sampling, index_t epoch_sample_count, const std::string &path_to_book_file)
+: BookWriter(freq_sampling, epoch_sample_count) {
     db = create_database(path_to_book_file.c_str());
     execute("PRAGMA journal_mode = OFF");
 
@@ -127,9 +130,10 @@ void SQLiteBookWriter::finalize() {
     insert_metadata("segment_count", total_segments_written, sqlite3_bind_int);
 }
 
-void SQLiteBookWriter::write(Array2D<double> data, index_t segment_offset, double freq_sampling, const std::vector<std::list<ExportedAtom>> &atoms) {
+void SQLiteBookWriter::write(Array2D<double> data, EpochIndex epoch, const std::vector<std::list<ExportedAtom>> &atoms) {
     const int C = data.height();
     const index_t N = data.length();
+    const index_t segment_offset = epoch.epoch_offset * epoch_sample_count;
 
     if (!total_segments_written) {
         insert_metadata("channel_count", C, sqlite3_bind_int);
@@ -168,7 +172,7 @@ std::shared_ptr<sqlite3> SQLiteBookWriter::create_database(const char *path) {
     if (result != SQLITE_OK || db == nullptr) {
         throw std::runtime_error("cannot open SQLite file");
     }
-    return std::shared_ptr<sqlite3>(db, sqlite3_close_v2);
+    return {db, sqlite3_close_v2};
 }
 
 std::shared_ptr<sqlite3_stmt> SQLiteBookWriter::prepare(const char *sql) {
@@ -177,7 +181,7 @@ std::shared_ptr<sqlite3_stmt> SQLiteBookWriter::prepare(const char *sql) {
     if (result != SQLITE_OK || stmt == nullptr) {
         throw std::runtime_error("cannot prepare SQLite query");
     }
-    return std::shared_ptr<sqlite3_stmt>(stmt, sqlite3_finalize);
+    return {stmt, sqlite3_finalize};
 }
 
 void SQLiteBookWriter::execute(const char *sql) {
@@ -254,10 +258,11 @@ void SQLiteBookWriter::insert_metadata(const char *param, V value, B sqlite3_bin
 }
 
 void SQLiteBookWriter::insert_samples(int segment_id, int channel_id, const std::vector<float> &samples) {
+    const sqlite3_uint64 segment_bytes = static_cast<sqlite3_uint64>(samples.size()) * sizeof(float);
     if (sqlite3_reset(stmt_insert_samples.get()) != SQLITE_OK
         || sqlite3_bind_int(stmt_insert_samples.get(), 1, segment_id) != SQLITE_OK
         || sqlite3_bind_int(stmt_insert_samples.get(), 2, channel_id) != SQLITE_OK
-        || sqlite3_bind_blob(stmt_insert_samples.get(), 3, samples.data(), samples.size() * sizeof(float), SQLITE_STATIC) != SQLITE_OK
+        || sqlite3_bind_blob64(stmt_insert_samples.get(), 3, samples.data(), segment_bytes, SQLITE_STATIC) != SQLITE_OK
         || sqlite3_step(stmt_insert_samples.get()) != SQLITE_DONE
             ) {
         throw std::runtime_error("cannot insert samples into SQLite file");

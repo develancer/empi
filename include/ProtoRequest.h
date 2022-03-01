@@ -9,7 +9,7 @@
 /**
  * Plain data object consisting of the subset of fields from SpectrogramRequest
  * which can be known and obtained in advance from Dictionary instances.
- * This way, Worker instances may pre-allocate all needed internal buffers.
+ * This way, SpectrogramCalculator instances may pre-allocate all needed internal buffers.
  */
 struct ProtoRequest {
 

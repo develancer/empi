@@ -36,15 +36,15 @@ class CudaException : public std::runtime_error {
     }
 
 public:
-    CudaException(cudaError_t error)
+    explicit CudaException(cudaError_t error)
             : std::runtime_error(prepare("GPU error (CUDA) %s (%s)", cudaGetErrorName(error), cudaGetErrorString(error))) {}
 
-    CudaException(cufftResult_t result)
+    explicit CudaException(cufftResult_t result)
             : std::runtime_error(prepare("GPU error (cuFFT) #%d", static_cast<int>(result))) {}
 };
 
 class CudaMemoryException : public std::exception {
-    const char *what(void) const noexcept {
+    const char *what() const noexcept override {
         return "GPU ran out of memory";
     }
 };

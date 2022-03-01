@@ -5,7 +5,7 @@
  **********************************************************/
 #include "PinnedArray.h"
 
-// This file provides allocation of pinned (page-locked) host memory
+// This file provides allocation of pinned (page-locked) host memory,
 // so it can be safely used in some CUDA routines.
 // Each executable should link with either alloc.cpp or alloc.cu, but not both at once.
 

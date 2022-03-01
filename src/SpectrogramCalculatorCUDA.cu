@@ -9,13 +9,12 @@
 #include <memory>
 #include <set>
 #include <utility>
-#include <vector>
 #include "Array.h"
 #include "Corrector.h"
 #include "CUDA.h"
 #include "IndexRange.h"
 #include "PinnedArray.h"
-#include "WorkerCUDA.h"
+#include "SpectrogramCalculatorCUDA.h"
 
 char CudaException::buffer[256];
 
@@ -289,7 +288,7 @@ Array2D<T> cuda_dev_array_2d(size_t n, size_t m) {
 std::shared_ptr<CUstream_st> cuda_create_stream() {
     cudaStream_t stream;
     cuda_check(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));
-    return std::shared_ptr<CUstream_st>(stream, cudaStreamDestroy);
+    return {stream, cudaStreamDestroy};
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -428,7 +427,7 @@ public:
                 max_work_size = std::max(max_work_size, work_size);
                 associateCallbackWithPlan(handle, dev_info.get());
                 cufft_check(cufftSetStream(handle, stream.get()));
-                plans.emplace(std::make_pair(window_length, how_many), std::move(handle));
+                plans.emplace(std::make_pair(window_length, how_many), handle);
             }
         }
 
@@ -502,11 +501,11 @@ public:
 
 //////////////////////////////////////////////////////////////////////////////
 
-WorkerCUDA::WorkerCUDA(int channel_count, const std::list<ProtoRequest> &proto_requests, int device) {
+SpectrogramCalculatorCUDA::SpectrogramCalculatorCUDA(int channel_count, const std::list<ProtoRequest> &proto_requests, int device) {
     task = std::make_shared<CudaTask>(channel_count, proto_requests, device);
 }
 
-void WorkerCUDA::compute(const SpectrogramRequest &request) {
+void SpectrogramCalculatorCUDA::compute(const SpectrogramRequest &request) {
     request.assertCorrectness();
     task->compute(request);
 }

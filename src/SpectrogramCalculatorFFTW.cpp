@@ -5,9 +5,8 @@
  **********************************************************/
 #include <list>
 #include <fftw3.h>
-#include "Corrector.h"
 #include "IndexRange.h"
-#include "WorkerFFTW.h"
+#include "SpectrogramCalculatorFFTW.h"
 
 template<typename TX, typename TY>
 static void mul(size_t count, TX *__restrict x, const TY *__restrict y) noexcept {
@@ -18,7 +17,7 @@ static void mul(size_t count, TX *__restrict x, const TY *__restrict y) noexcept
 
 //////////////////////////////////////////////////////////////////////////////
 
-WorkerFFTW::WorkerFFTW(int channel_count, const std::set<int> &window_lengths)
+SpectrogramCalculatorFFTW::SpectrogramCalculatorFFTW(int channel_count, const std::set<int> &window_lengths)
         : max_window_length(*window_lengths.rbegin()),
           input_buffers(channel_count, max_window_length, fftw_alloc_real, fftw_free),
           output_buffers(channel_count, max_window_length / 2 + 1, fftw_alloc_complex, fftw_free) {
@@ -33,13 +32,13 @@ WorkerFFTW::WorkerFFTW(int channel_count, const std::set<int> &window_lengths)
     }
 }
 
-WorkerFFTW::WorkerFFTW(const WorkerFFTW &source)
+SpectrogramCalculatorFFTW::SpectrogramCalculatorFFTW(const SpectrogramCalculatorFFTW &source)
         : max_window_length(source.max_window_length),
           input_buffers(source.input_buffers.height(), source.input_buffers.length(), fftw_alloc_real, fftw_free),
           output_buffers(source.output_buffers.height(), source.output_buffers.length(), fftw_alloc_complex, fftw_free),
           plans(source.plans) {}
 
-void WorkerFFTW::compute(const SpectrogramRequest &request) {
+void SpectrogramCalculatorFFTW::compute(const SpectrogramRequest &request) {
     request.assertCorrectness();
     fftw_plan plan = getPlan(request.window_length);
 
@@ -78,7 +77,7 @@ void WorkerFFTW::compute(const SpectrogramRequest &request) {
     }
 }
 
-const complex *WorkerFFTW::computeSpectrum(Array1D<double> input, int window_length) {
+const complex *SpectrogramCalculatorFFTW::computeSpectrum(Array1D<double> input, int window_length) {
     fftw_plan plan = getPlan(window_length);
 
     double *input_buffer = input_buffers[0];
@@ -93,7 +92,7 @@ const complex *WorkerFFTW::computeSpectrum(Array1D<double> input, int window_len
     return reinterpret_cast<complex *>(output_buffer);
 }
 
-fftw_plan WorkerFFTW::getPlan(int window_length) const {
+fftw_plan SpectrogramCalculatorFFTW::getPlan(int window_length) const {
     auto it = plans.find(window_length);
     if (it == plans.end()) {
         throw std::logic_error("invalid window_length passed to FFTW calculator");

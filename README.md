@@ -67,7 +67,7 @@ followed by
 
 in the directory where you cloned your repository; you can also do an
 out-of-source build, if you prefer. If successful, binary file “empi” shall
-appear. It can by installed to system directory (e.g. /usr/local/bin)
+appear. It can be installed to system directory (e.g. /usr/local/bin)
 by calling
 
 	sudo make install
@@ -165,7 +165,7 @@ segments will be processed in order, and their decomposition will be written
 to the same output file. This parameter is optional; if not given, the entire
 signal will be processed as a single segment.
 
-* _selectedEpochs_ is only valid with _numberOfSamplesInEpoch_ and it specifies
+* _selectedEpochs_ is only valid with _numberOfSamplesInEpoch_, and it specifies
 a list of epoch numbers (starting from 1) to be processed. These can be passed
 as a single epoch `1`, as an interval `1-100`, as a list `1,2,3` or mixed:
 `1-100,201-300,400`. This parameter is optional; if not given, then all epochs

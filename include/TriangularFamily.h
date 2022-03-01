@@ -16,7 +16,7 @@ public:
     /**
      * Create a new instance representing a triangular envelope.
      */
-    explicit TriangularFamily();
+    explicit TriangularFamily() = default;
 
     double max_arg() const final;
 

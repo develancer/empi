@@ -16,7 +16,7 @@
 
 /**
  * Plain data object for a single request for spectrogram calculation.
- * Such request can be served by Worker implementations by
+ * Such request can be served by SpectrogramCalculator implementations by
  * 1) computing a windowed spectrogram of each channel in given multi-channel input data, and
  * 2) using a specified Extractor implementation to find the maximum value of each spectrum.
  */

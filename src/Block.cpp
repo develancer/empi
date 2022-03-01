@@ -5,9 +5,6 @@
  **********************************************************/
 #include <algorithm>
 #include "Block.h"
-#include "BlockHelper.h"
-#include "PinnedArray.h"
-#include "SpectrumCalculator.h"
 
 //////////////////////////////////////////////////////////////////////////////
 

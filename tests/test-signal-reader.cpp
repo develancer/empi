@@ -60,7 +60,8 @@ void test_all_epochs() {
     auto result = reader.read(buffer);
     ASSERT(result);
     ASSERT_EQUALS(0, result->channel_offset);
-    ASSERT_EQUALS(0, result->epoch);
+    ASSERT_EQUALS(0, result->epoch_offset);
+    ASSERT_EQUALS(0, result->epoch_counter);
     for (int i = 0; i < 8; ++i) {
         ASSERT_EQUALS(3 * i, buffer[0][i]);
         ASSERT_EQUALS(3 * i + 1, buffer[1][i]);
@@ -68,7 +69,8 @@ void test_all_epochs() {
     result = reader.read(buffer);
     ASSERT(result);
     ASSERT_EQUALS(0, result->channel_offset);
-    ASSERT_EQUALS(1, result->epoch);
+    ASSERT_EQUALS(1, result->epoch_offset);
+    ASSERT_EQUALS(1, result->epoch_counter);
     for (int i = 0; i < 4; ++i) {
         ASSERT_EQUALS(3 * (i + 8), buffer[0][i]);
         ASSERT_EQUALS(3 * (i + 8) + 1, buffer[1][i]);
@@ -94,7 +96,8 @@ void test_whole_signal() {
     auto result = reader.read(buffer);
     ASSERT(result);
     ASSERT_EQUALS(0, result->channel_offset);
-    ASSERT_EQUALS(0, result->epoch);
+    ASSERT_EQUALS(0, result->epoch_offset);
+    ASSERT_EQUALS(0, result->epoch_counter);
     for (int i = 0; i < 12; ++i) {
         ASSERT_EQUALS(3 * i, buffer[0][i]);
         ASSERT_EQUALS(3 * i + 1, buffer[1][i]);

@@ -35,12 +35,12 @@ void BlockAtomCache::remove_overlapping(IndexRange range_to_overlap) {
 
 //////////////////////////////////////////////////////////////////////////////
 
-BlockAtomCacheSlot::BlockAtomCacheSlot(std::shared_ptr<BlockAtomCache> cache, size_t key) : cache(std::move(cache)), key(key) {}
+BlockAtomCacheSlot::BlockAtomCacheSlot(const std::shared_ptr<BlockAtomCache>& cache, size_t key) : cache(cache), key(key) {}
 
 std::shared_ptr<BlockExtendedAtom> BlockAtomCacheSlot::get() const {
     return cache.lock()->get(key);
 }
 
 void BlockAtomCacheSlot::set(IndexRange index_range, std::shared_ptr<BlockExtendedAtom> atom) {
-    cache.lock()->set(key, index_range, atom);
+    cache.lock()->set(key, index_range, std::move(atom));
 }

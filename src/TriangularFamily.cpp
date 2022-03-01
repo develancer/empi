@@ -11,9 +11,6 @@ static const double NORM = std::pow(0.9 * M_PI, 0.25);
 
 //////////////////////////////////////////////////////////////////////////////
 
-TriangularFamily::TriangularFamily() {
-}
-
 double TriangularFamily::max_arg() const {
     return MIN_MAX;
 }

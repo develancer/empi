@@ -8,13 +8,17 @@
 
 #include <list>
 #include <string>
-#include "CLI11.hpp"
 #include "Extractor.h"
 #include "Family.h"
 #include "OptimizationMode.h"
 
 struct EnvelopeConfiguration {
-    std::shared_ptr<Family> family;
+
+    /**
+     * Pointer to the shared Family implementation.
+     * This field is filled by the parser's final callback.
+     */
+    std::shared_ptr<Family> family = nullptr;
 
     /**
      * Minimum scale (in samples) for the atom, in samples.
@@ -48,10 +52,16 @@ struct Configuration {
     int channel_count = 1;
 
     /**
-     * Number of CPU threads to use.
+     * Number of CPU threads to be used by a single worker.
      * The default value is taken from std::thread::hardware_concurrency().
      */
     unsigned cpu_threads;
+
+    /**
+     * Number of CPU workers to run in parallel.
+     * Each worker will be independent and responsible for processing different data segment.
+     */
+    unsigned cpu_workers = 1;
 
     /**
      * Energy ε² parameter corresponding to the size of the dictionary.
@@ -75,12 +85,10 @@ struct Configuration {
      */
     Extractor extractor = nullptr;
 
-#ifdef HAVE_CUDA
     /**
      * List of IDs of all GPU devices to use.
      */
     std::vector<int> gpu_devices;
-#endif
 
     /**
      * Whether to treat input data as double precision 64-bit floating point values (true)

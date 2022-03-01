@@ -4,7 +4,6 @@
  * See README.md and LICENCE for details.                 *
  **********************************************************/
 #include "BlockAtomProductCalculator.h"
-#include "BlockAtomObjective.h"
 #include "Extractor.h"
 
 //////////////////////////////////////////////////////////////////////////////

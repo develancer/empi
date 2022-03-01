@@ -3,25 +3,18 @@
  *   Enhanced Matching Pursuit Implementation (empi)      *
  * See README.md and LICENCE for details.                 *
  **********************************************************/
-#ifndef EMPI_SIGNALREADER_H
-#define EMPI_SIGNALREADER_H
+#ifndef EMPI_SIGNAL_READER_H
+#define EMPI_SIGNAL_READER_H
 
 #include <cstdio>
 #include <limits>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <vector>
 #include "Array.h"
+#include "EpochIndex.h"
 #include "File.h"
-
-struct EpochIndex {
-    int epoch;
-    int channel_offset;
-
-    EpochIndex(int epoch, int channel_offset = 0) : epoch(epoch), channel_offset(channel_offset) {}
-};
-
-//------------------------------------------------------------------------------
 
 class SignalReader {
 public:
@@ -34,6 +27,9 @@ public:
     virtual std::optional<EpochIndex> read(Array2D<double> buffer) = 0;
 
     virtual ~SignalReader() = default;
+
+protected:
+    std::mutex mutex;
 };
 
 //------------------------------------------------------------------------------
@@ -44,16 +40,16 @@ class SignalReaderBase : public SignalReader {
 
 protected:
     const int channel_count;
-    File file;
+    FileToRead file;
 
     SignalReaderBase(const char *signal_file_path, int channel_count, std::vector<int> selected_channels)
-            : selected_channels(std::move(selected_channels)), channel_count(channel_count), file(signal_file_path, "rb") {
+            : selected_channels(std::move(selected_channels)), channel_count(channel_count), file(signal_file_path) {
         if (this->selected_channels.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
             throw std::runtime_error("too many selected channels");
         }
     }
 
-    index_t read_into_buffer(Array2D<double> buffer) {
+    index_t read_into_buffer(Array2D<double>& buffer) {
         std::vector<REAL> sample(channel_count);
         const int selected_channel_count = selected_channels.size();
         if (buffer.height() != selected_channel_count) {
@@ -88,29 +84,7 @@ class SignalReaderForAllEpochs : public SignalReaderBase<REAL> {
 protected:
     const index_t epoch_sample_count;
 
-public:
-    SignalReaderForAllEpochs(const char *signal_file_path, int channel_count, std::vector<int> selected_channels, index_t epoch_sample_count)
-            : SignalReaderBase<REAL>(signal_file_path, channel_count, std::move(selected_channels)),
-              epochs_read(0),
-              epoch_sample_count(epoch_sample_count) {
-        if (epoch_sample_count <= 0) {
-            throw std::logic_error("invalid epoch size");
-        }
-    }
-
-    size_t get_epoch_count() const override {
-        off_t old_position = ftello(this->file.get());
-        fseeko(SignalReaderBase<REAL>::file.get(), 0, SEEK_END);
-        off_t end_position = ftello(this->file.get());
-        fseeko(SignalReaderBase<REAL>::file.get(), old_position, SEEK_SET);
-        return end_position / sizeof(REAL) / epoch_sample_count / this->channel_count;
-    }
-
-    index_t get_epoch_sample_count() const final {
-        return epoch_sample_count;
-    }
-
-    std::optional<EpochIndex> read(Array2D<double> buffer) override {
+    std::optional<EpochIndex> read_unlocked(Array2D<double> buffer) {
         if (buffer.length() != epoch_sample_count) {
             throw std::logic_error("buffer has invalid length");
         }
@@ -124,7 +98,31 @@ public:
                 std::fill(buffer[c] + samples_read, buffer[c] + epoch_sample_count, 0);
             }
         }
-        return epochs_read++;
+        int epoch_offset = epochs_read++;
+        return EpochIndex{epoch_offset, epoch_offset};
+    }
+
+public:
+    SignalReaderForAllEpochs(const char *signal_file_path, int channel_count, std::vector<int> selected_channels, index_t epoch_sample_count)
+            : SignalReaderBase<REAL>(signal_file_path, channel_count, std::move(selected_channels)),
+              epochs_read(0),
+              epoch_sample_count(epoch_sample_count) {
+        if (epoch_sample_count <= 0) {
+            throw std::logic_error("invalid epoch size");
+        }
+    }
+
+    size_t get_epoch_count() const override {
+        return this->file.get_file_size() / (sizeof(REAL) * epoch_sample_count * this->channel_count);
+    }
+
+    index_t get_epoch_sample_count() const final {
+        return epoch_sample_count;
+    }
+
+    std::optional<EpochIndex> read(Array2D<double> buffer) override {
+        std::lock_guard<std::mutex> lock(this->mutex);
+        return read_unlocked(buffer);
     }
 };
 
@@ -145,18 +143,20 @@ public:
     }
 
     std::optional<EpochIndex> read(Array2D<double> buffer) final {
+        std::lock_guard<std::mutex> lock(this->mutex);
         if (next_epoch_index >= epochs.size()) {
             return std::nullopt;
         }
-        int actual_epoch = epochs[next_epoch_index++] - 1;
-        size_t seek_offset = sizeof(REAL) * static_cast<size_t>(actual_epoch) * static_cast<size_t>(this->epoch_sample_count) * static_cast<size_t>(this->channel_count);
+        int epoch_counter = next_epoch_index++;
+        int epoch_offset = epochs[epoch_counter] - 1;
+        size_t seek_offset = sizeof(REAL) * static_cast<size_t>(epoch_offset) * static_cast<size_t>(this->epoch_sample_count) * static_cast<size_t>(this->channel_count);
         if (seek_offset > static_cast<size_t>(std::numeric_limits<long>::max()) || fseek(this->file.get(), seek_offset, SEEK_SET)) {
             throw std::runtime_error("could not seek signal file");
         }
-        if (!SignalReaderForAllEpochs<REAL>::read(buffer)) {
+        if (!SignalReaderForAllEpochs<REAL>::read_unlocked(buffer)) {
             return std::nullopt;
         }
-        return actual_epoch;
+        return EpochIndex{epoch_counter, epoch_offset};
     }
 };
 
@@ -169,10 +169,7 @@ class SignalReaderForWholeSignal : public SignalReaderBase<REAL> {
 public:
     SignalReaderForWholeSignal(const char *signal_file_path, int channel_count, std::vector<int> selected_channels)
             : SignalReaderBase<REAL>(signal_file_path, channel_count, std::move(selected_channels)) {
-        // TODO support for files larger than 2 GB on 32-bit systems
-        fseek(this->file.get(), 0, SEEK_END);
-        signal_sample_count = ftell(this->file.get()) / sizeof(REAL) / channel_count;
-        rewind(this->file.get());
+        signal_sample_count = this->file.get_file_size() / (sizeof(REAL) * channel_count);
     }
 
     size_t get_epoch_count() const final {
@@ -187,6 +184,7 @@ public:
         if (buffer.length() != signal_sample_count) {
             throw std::logic_error("buffer has invalid length");
         }
+        std::lock_guard<std::mutex> lock(this->mutex);
         index_t samples_read = SignalReaderBase<REAL>::read_into_buffer(buffer);
         if (!samples_read) {
             return std::nullopt;
@@ -194,19 +192,19 @@ public:
         if (samples_read != signal_sample_count) {
             throw std::runtime_error("could not read from file");
         }
-        return 0; // first and only epoch
+        return EpochIndex{0, 0};
     }
 };
 
 //------------------------------------------------------------------------------
 
 class SignalReaderSingleChannel : public SignalReader {
-    std::unique_ptr<SignalReader> source;
+    std::shared_ptr<SignalReader> source;
     Array2D<double> epoch;
     std::optional<EpochIndex> last_epoch;
 
 public:
-    explicit SignalReaderSingleChannel(std::unique_ptr<SignalReader> &&source_);
+    explicit SignalReaderSingleChannel(std::shared_ptr<SignalReader> source_);
 
     int get_epoch_channel_count() const final;
 
@@ -219,4 +217,4 @@ public:
 
 //------------------------------------------------------------------------------
 
-#endif //EMPI_SIGNALREADER_H
+#endif //EMPI_SIGNAL_READER_H

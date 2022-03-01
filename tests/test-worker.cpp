@@ -5,11 +5,11 @@
  **********************************************************/
 #include <atomic>
 #include <cstdio>
-#include "Computer.h"
+#include "SpectrogramCalculator.h"
 #include "Testing.h"
 #include "Worker.h"
 
-class SpectrogramCalculatorForTest : public Worker {
+class SpectrogramCalculatorForTest : public SpectrogramCalculator {
     void compute(const SpectrogramRequest &request) final {
         request.maxima[0].energy = 10.0 * (request.how_many * 13 % 100);
     }
@@ -109,12 +109,12 @@ int main() {
     const int W = 7; // number of workers
     Array2D<double> data(2, 55);
 
-    Computer computer(data, OPTIMIZATION_DISABLED);
-    computer.add_dictionary(std::make_unique<DictionaryImplForTest>(data));
+    Worker worker(data, 1);
+    worker.add_dictionary(std::make_unique<DictionaryImplForTest>(data));
     for (int w = 0; w < W; ++w) {
-        computer.add_calculator(std::make_unique<SpectrogramCalculatorForTest>());
+        worker.add_calculator(std::make_unique<SpectrogramCalculatorForTest>());
     }
-    ExtendedAtomPointer atom = computer.get_next_atom();
+    ExtendedAtomPointer atom = worker.get_next_atom();
     ASSERT_EQUALS(10.0 * (R - 1), atom->energy);
     ASSERT_EQUALS(R, DictionaryImplForTest::notify_called_count);
     puts("OK");
