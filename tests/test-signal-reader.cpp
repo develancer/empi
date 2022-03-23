@@ -25,6 +25,7 @@ void test_empty_file_all_epochs() {
     std::vector<int> selected_channels = {1, 2};
     SignalReaderForAllEpochs<float> reader(tmp_name, 3, std::move(selected_channels), 8);
 
+    ASSERT_EQUALS(0, reader.get_epoch_count());
     ASSERT_EQUALS(2, reader.get_epoch_channel_count());
     ASSERT_EQUALS(8, reader.get_epoch_sample_count());
 
@@ -39,6 +40,7 @@ void test_empty_file_whole_signal() {
     std::vector<int> selected_channels = {1, 2};
     SignalReaderForWholeSignal<float> reader(tmp_name, 3, std::move(selected_channels));
 
+    ASSERT_EQUALS(1, reader.get_epoch_count());
     ASSERT_EQUALS(2, reader.get_epoch_channel_count());
     ASSERT_EQUALS(0, reader.get_epoch_sample_count());
 
@@ -53,6 +55,7 @@ void test_all_epochs() {
     std::vector<int> selected_channels = {1, 2};
     SignalReaderForAllEpochs<float> reader(tmp_name, 3, std::move(selected_channels), 8);
 
+    ASSERT_EQUALS(2, reader.get_epoch_count());
     ASSERT_EQUALS(2, reader.get_epoch_channel_count());
     ASSERT_EQUALS(8, reader.get_epoch_sample_count());
 
@@ -89,6 +92,7 @@ void test_whole_signal() {
     std::vector<int> selected_channels = {1, 2};
     SignalReaderForWholeSignal<float> reader(tmp_name, 3, std::move(selected_channels));
 
+    ASSERT_EQUALS(1, reader.get_epoch_count());
     ASSERT_EQUALS(2, reader.get_epoch_channel_count());
     ASSERT_EQUALS(12, reader.get_epoch_sample_count());
 

@@ -29,8 +29,8 @@ void Progress::epoch_started(EpochIndex index) {
 }
 
 void Progress::epoch_progress(EpochIndex index, double progress) {
-    progress_map[index] = progress;
     std::lock_guard<std::mutex> lock(mutex);
+    progress_map[index] = progress;
     print_progress();
 }
 

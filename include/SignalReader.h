@@ -113,7 +113,12 @@ public:
     }
 
     size_t get_epoch_count() const override {
-        return this->file.get_file_size() / (sizeof(REAL) * epoch_sample_count * this->channel_count);
+        size_t file_size_in_bytes = this->file.get_file_size();
+        if (!file_size_in_bytes) {
+            return 0;
+        }
+        // last epoch may be truncated
+        return (file_size_in_bytes - 1) / (sizeof(REAL) * epoch_sample_count * this->channel_count) + 1;
     }
 
     index_t get_epoch_sample_count() const final {

@@ -54,6 +54,8 @@ public:
     explicit Worker(Array2D<real> data, unsigned cpu_threads, OptimizationMode mode = OPTIMIZATION_DISABLED);
 
     Worker(Worker&& source) = default;
+    Worker(const Worker&) = delete;
+    void operator=(const Worker&) = delete;
 
     /**
      * Destroy the Worker instance by terminating the task queue and closing all worker threads.

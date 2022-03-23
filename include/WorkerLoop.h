@@ -77,6 +77,10 @@ public:
 #endif
     }
 
+    WorkerLoop(WorkerLoop&&) = default;
+    WorkerLoop(const WorkerLoop&) = delete;
+    void operator=(const WorkerLoop&) = delete;
+
     void operator()() {
         std::vector<std::list<ExportedAtom>> atoms(signal_reader->get_epoch_channel_count());
 
