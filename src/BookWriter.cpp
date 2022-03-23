@@ -135,6 +135,7 @@ void SQLiteBookWriter::write(Array2D<double> data, EpochIndex epoch, const std::
     const index_t N = data.length();
     const index_t segment_offset = epoch.epoch_offset * epoch_sample_count;
 
+    execute("BEGIN TRANSACTION");
     if (!total_segments_written) {
         insert_metadata("channel_count", C, sqlite3_bind_int);
         insert_metadata("sampling_frequency_Hz", freq_sampling, sqlite3_bind_double);
@@ -162,6 +163,7 @@ void SQLiteBookWriter::write(Array2D<double> data, EpochIndex epoch, const std::
         }
         insert_samples(total_segments_written, c, samples);
     }
+    execute("COMMIT TRANSACTION");
     total_segments_written++;
 }
 
