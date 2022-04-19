@@ -7,6 +7,7 @@
 
 #include <cstdio>
 #include <stdexcept>
+#include <cuda.h>
 #include <cufftXt.h>
 #include "Types.h"
 
@@ -36,6 +37,9 @@ class CudaException : public std::runtime_error {
     }
 
 public:
+    explicit CudaException(CUresult result)
+            : std::runtime_error(prepare("GPU error (driver) %d", static_cast<int>(result))) {}
+
     explicit CudaException(cudaError_t error)
             : std::runtime_error(prepare("GPU error (CUDA) %s (%s)", cudaGetErrorName(error), cudaGetErrorString(error))) {}
 

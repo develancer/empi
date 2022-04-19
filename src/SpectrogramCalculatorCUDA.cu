@@ -7,6 +7,7 @@
 #include <list>
 #include <map>
 #include <memory>
+#include <queue>
 #include <set>
 #include <utility>
 #include "Array.h"
@@ -17,6 +18,17 @@
 #include "SpectrogramCalculatorCUDA.h"
 
 char CudaException::buffer[256];
+
+static std::map<int, std::queue<CUcontext>> contexts;
+
+void cu_check(CUresult result) {
+    if (result) {
+        if (result == CUDA_ERROR_OUT_OF_MEMORY) {
+            throw CudaMemoryException();
+        }
+        throw CudaException(result);
+    }
+}
 
 void cuda_check(cudaError_t error) {
     if (error) {
@@ -294,7 +306,7 @@ std::shared_ptr<CUstream_st> cuda_create_stream() {
 //////////////////////////////////////////////////////////////////////////////
 
 class CudaTask {
-    const int device;
+    const CUcontext context;
     std::map<std::pair<int, int>, cufftHandle> plans;
 
     std::shared_ptr<CudaCallbackInfo> info;
@@ -339,7 +351,7 @@ class CudaTask {
     }
 
 public:
-    CudaTask(int channel_count, const std::list<ProtoRequest> &proto_requests, int device) : device(device) {
+    CudaTask(int channel_count, const std::list<ProtoRequest> &proto_requests, CUcontext context) : context(context) {
         int max_envelope_length = 0;
         int max_output_bins = 0;
         int max_window_length = 0;
@@ -349,7 +361,7 @@ public:
             max_window_length = std::max(max_window_length, proto_request.window_length);
         }
 
-        cuda_check(cudaSetDevice(device));
+        cu_check(cuCtxSetCurrent(context));
         stream = cuda_create_stream();
 
         info.reset(cuda_host_alloc<CudaCallbackInfo>(1), cuda_host_free);
@@ -438,14 +450,14 @@ public:
     }
 
     ~CudaTask() {
-        cuda_check(cudaSetDevice(device));
+        cu_check(cuCtxSetCurrent(context));
         for (auto &pair : plans) {
             cufftDestroy(pair.second);
         }
     }
 
     void compute(const SpectrogramRequest &request) {
-        cuda_check(cudaSetDevice(device));
+        cu_check(cuCtxSetCurrent(context));
         const index_t total_input_length = request.envelope_length + (request.how_many - 1) * request.input_shift;
         IndexRange overlap = IndexRange(-request.input_offset, request.channel_length - request.input_offset).overlap(total_input_length);
         if (!overlap) {
@@ -502,10 +514,27 @@ public:
 //////////////////////////////////////////////////////////////////////////////
 
 SpectrogramCalculatorCUDA::SpectrogramCalculatorCUDA(int channel_count, const std::list<ProtoRequest> &proto_requests, int device) {
-    task = std::make_shared<CudaTask>(channel_count, proto_requests, device);
+    auto& available_contexts = contexts[device];
+    if (available_contexts.empty()) {
+        throw std::logic_error("no available CUDA contexts left");
+    }
+    CUcontext context = available_contexts.front();
+    available_contexts.pop();
+    task = std::make_shared<CudaTask>(channel_count, proto_requests, context);
 }
 
 void SpectrogramCalculatorCUDA::compute(const SpectrogramRequest &request) {
     request.assertCorrectness();
     task->compute(request);
+}
+
+void SpectrogramCalculatorCUDA::prepare_contexts(int device, int count) {
+    if (contexts.empty()) {
+        cu_check(cuInit(0));
+    }
+    for (int i=0; i<count; ++i) {
+        CUcontext context;
+        cu_check(cuCtxCreate(&context, 0, device));
+        contexts[device].push(context);
+    }
 }

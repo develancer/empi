@@ -104,6 +104,10 @@ static int empi(const Configuration &configuration) {
 #ifdef HAVE_CUDA
     if (configuration.gpu_devices.empty()) {
         cuda_host_disable();
+    } else {
+        for (int gpu_device : configuration.gpu_devices) {
+            SpectrogramCalculatorCUDA::prepare_contexts(gpu_device, configuration.cpu_workers);
+        }
     }
 #endif
 

@@ -35,6 +35,8 @@ public:
      * @param request specification for the spectrogram to be computed
      */
     void compute(const SpectrogramRequest &request) final;
+
+    static void prepare_contexts(int device, int count);
 };
 
 #endif //EMPI_SPECTROGRAM_CALCULATOR_CUDA_H
