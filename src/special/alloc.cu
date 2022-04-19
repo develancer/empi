@@ -23,7 +23,7 @@ void *cuda_host_malloc(size_t length) {
             throw std::bad_alloc();
         }
     } else {
-        if (cudaMallocHost(&result, length)) {
+        if (cudaHostAlloc(&result, length, cudaHostAllocPortable)) {
             throw std::bad_alloc();
         }
     }
