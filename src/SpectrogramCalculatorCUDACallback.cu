@@ -27,17 +27,12 @@ static __device__ cufftCallbackLoadD myInputPtr = myInputCallback;
 
 static __device__ cufftCallbackStoreZ myOutputPtr = myOutputCallback;
 
-static cufftCallbackLoadD hostCopyOfInputCallback = nullptr;
+void CudaCallback::initialize() {
+    cuda_check(cudaMemcpyFromSymbol(&hostCopyOfInputCallback, myInputPtr, sizeof(void*)));
+    cuda_check(cudaMemcpyFromSymbol(&hostCopyOfOutputCallback, myOutputPtr, sizeof(void*)));
+}
 
-static cufftCallbackStoreZ hostCopyOfOutputCallback = nullptr;
-
-void associateCallbackWithPlan(cufftHandle plan, CudaCallbackInfo *dev_info) {
-    if (!hostCopyOfInputCallback) {
-        cuda_check(cudaMemcpyFromSymbol(&hostCopyOfInputCallback, myInputPtr, sizeof(hostCopyOfInputCallback)));
-    }
-    if (!hostCopyOfOutputCallback) {
-        cuda_check(cudaMemcpyFromSymbol(&hostCopyOfOutputCallback, myOutputPtr, sizeof(hostCopyOfOutputCallback)));
-    }
+void CudaCallback::associate(cufftHandle plan, CudaCallbackInfo *dev_info) {
     cufft_check(cufftXtSetCallback(plan, (void **) &hostCopyOfInputCallback, CUFFT_CB_LD_REAL_DOUBLE, (void **) &dev_info));
     cufft_check(cufftXtSetCallback(plan, (void **) &hostCopyOfOutputCallback, CUFFT_CB_ST_COMPLEX_DOUBLE, (void **) &dev_info));
 }

@@ -24,7 +24,15 @@ struct CudaCallbackInfo {
     size_t window_length_mask;
 };
 
-void associateCallbackWithPlan(cufftHandle plan, CudaCallbackInfo *dev_info);
+class CudaCallback {
+    void *hostCopyOfInputCallback = nullptr;
+    void *hostCopyOfOutputCallback = nullptr;
+
+public:
+    void initialize();
+
+    void associate(cufftHandle plan, CudaCallbackInfo *dev_info);
+};
 
 class CudaException : public std::runtime_error {
     static char buffer[256];

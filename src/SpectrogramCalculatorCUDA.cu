@@ -296,6 +296,7 @@ std::shared_ptr<CUstream_st> cuda_create_stream() {
 class CudaTask {
     const int device;
     std::map<std::pair<int, int>, cufftHandle> plans;
+    CudaCallback callback;
 
     std::shared_ptr<CudaCallbackInfo> info;
     std::shared_ptr<CudaCallbackInfo> dev_info;
@@ -350,6 +351,7 @@ public:
         }
 
         cuda_check(cudaSetDevice(device));
+        callback.initialize();
         stream = cuda_create_stream();
 
         info.reset(cuda_host_alloc<CudaCallbackInfo>(1), cuda_host_free);
@@ -425,7 +427,7 @@ public:
                         CUFFT_D2Z, how_many, &work_size
                 ));
                 max_work_size = std::max(max_work_size, work_size);
-                associateCallbackWithPlan(handle, dev_info.get());
+                callback.associate(handle, dev_info.get());
                 cufft_check(cufftSetStream(handle, stream.get()));
                 plans.emplace(std::make_pair(window_length, how_many), handle);
             }
