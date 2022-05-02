@@ -38,6 +38,7 @@ class WorkerLoop {
     Worker computer;
     const int iterations_max;
     const double energy_max_residual;
+    const std::string residual_log_dir;
 
 public:
     WorkerLoop(std::shared_ptr<SignalReader> signal_reader_, std::shared_ptr<BufferedWriter> book_writer_,
@@ -53,7 +54,8 @@ public:
               computer(data, configuration.cpu_threads, configuration.optimization_mode),
               iterations_max(
                       configuration.iterations_max ? configuration.iterations_max : std::numeric_limits<int>::max()),
-              energy_max_residual(configuration.energy_max_residual) {
+              energy_max_residual(configuration.energy_max_residual),
+              residual_log_dir(configuration.residual_log_dir) {
         // TODO check cpu_threads > 0
         if (configuration.include_delta_atoms) {
             computer.add_dictionary(std::make_unique<DeltaDictionary>(data));
@@ -86,11 +88,21 @@ public:
 
         size_t epochs_processed = 0;
         while (auto epoch_index = signal_reader->read(data)) {
+            FILE* residual_log = nullptr;
+            if (!residual_log_dir.empty()) {
+                const std::string residual_output_path = residual_log_dir + "/"
+                                                         + std::to_string(epoch_index->epoch_counter) + "-"
+                                                         + std::to_string(epoch_index->channel_offset) + ".log";
+                residual_log = fopen(residual_output_path.c_str(), "wt");
+            }
             for (int c = 0; c < data.height(); ++c) {
                 std::copy(data[c], data[c] + data.length(), initial[c]);
             }
             computer.reset();
             const double initial_energy = compute_total_energy(data);
+            if (residual_log) {
+                fprintf(residual_log, "%.6lf\n", initial_energy);
+            }
             progress->epoch_started(epoch_index.value());
             for (int i = 0; i < iterations_max; ++i) {
                 auto atom = computer.get_next_atom();
@@ -100,6 +112,9 @@ public:
                 atom->export_atom(atoms.data());
 
                 double residual_energy = compute_total_energy(data);
+                if (residual_log) {
+                    fprintf(residual_log, "%.6lf\n", residual_energy);
+                }
                 double energy_progress = std::min(1.0, std::log(residual_energy / initial_energy) /
                                                        std::log(energy_max_residual));
                 double this_epoch_progress = std::max(
@@ -110,6 +125,9 @@ public:
                     break;
                 }
                 progress->epoch_progress(epoch_index.value(), this_epoch_progress);
+            }
+            if (residual_log) {
+                fclose(residual_log);
             }
 
             book_writer->write(initial, epoch_index.value(), atoms);
