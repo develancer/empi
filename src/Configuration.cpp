@@ -92,6 +92,7 @@ bool Configuration::parse(int argc, char **argv, int &error_code) {
             ->capture_default_str();
     app.add_option("--opt-target", optimization_target, "Target accuracy (relative to the initial dictionary size) for local parameter optimization")
             ->capture_default_str();
+    app.add_option("--residual-log-dir", residual_log_dir, "Directory in which residual energy log files should be created (default: none)");
     app.add_option("--segment-size", segment_size, "Number of samples in each segment (default: all samples)");
     app.add_option("--segments", segment_specs, "Range of signal segments, e.g. 1-100,201-300 (default: all)");
 

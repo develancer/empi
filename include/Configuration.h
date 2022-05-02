@@ -112,6 +112,11 @@ struct Configuration {
     std::string input_file_path;
 
     /**
+     * Directory in which the residual energy log files should be created.
+     */
+    std::string residual_log_dir;
+
+    /**
      * Maximum number of iterations to perform.
      * The iterating procedure will stop if either
      * a) max_iterations are reached, or
