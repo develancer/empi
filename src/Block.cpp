@@ -5,11 +5,12 @@
  **********************************************************/
 #include <algorithm>
 #include "Block.h"
+#include "BlockAtomProductCalculator.h"
 
 //////////////////////////////////////////////////////////////////////////////
 
 Block::Block(PinnedArray2D<real> data_, std::shared_ptr<Family> family_, double scale, PinnedArray1D<double> envelope_,
-             PinnedArray1D<Corrector> correctors_, std::shared_ptr<BlockAtomParamsConverter> converter_, double booster,
+             PinnedArray1D<Corrector> correctors_, std::shared_ptr<BlockAtomParamsConverter> converter_,
              int window_length, int input_shift, Extractor extractor, bool allow_overstep)
         : data(std::move(data_)),
           family(std::move(family_)),
@@ -34,8 +35,16 @@ Block::Block(PinnedArray2D<real> data_, std::shared_ptr<Family> family_, double 
     const int how_many = (how_many_candidate <= 0 ? 0 : as_positive_int(how_many_candidate));
 
     maxima = PinnedArray1D<ExtractedMaximum>(how_many);
-    this->booster = Array1D<double>(how_many);
-    this->booster.fill(booster);
+
+    BlockAtomProductCalculator product_calculator(family);
+    booster = Array1D<double>(output_bins);
+    for (int k=0; k<output_bins; ++k) {
+        booster[k] = 1.0 / product_calculator.calculate_min_squared_product(
+                static_cast<double>(k) / window_length,
+                scale,
+                *converter
+        );
+    }
 
     total_request.data = data.get();
     total_request.channel_length = data.length();
@@ -110,7 +119,7 @@ BlockAtom Block::get_best_match() const {
 std::list<BlockAtom> Block::get_candidate_matches(double energy_to_exceed) const {
     std::list<BlockAtom> matches;
     for (int index = 0; index < total_request.how_many; ++index) {
-        if (index != best_index && maxima[index].energy * booster[index] > energy_to_exceed) {
+        if (index != best_index && maxima[index].energy * booster[maxima[index].bin_index] > energy_to_exceed) {
             matches.push_back(get_atom_from_index(index));
         }
     }
@@ -125,7 +134,7 @@ BlockAtom Block::get_atom_from_index(int index) const {
     BlockAtom result = BlockAtom(
             data,
             extracted.energy,
-            extracted.energy * booster[index],
+            extracted.energy * booster[extracted.bin_index],
             family,
             static_cast<double>(extracted.bin_index) / static_cast<double>(total_request.window_length),
             static_cast<double>( center_position ),

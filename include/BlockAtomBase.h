@@ -26,14 +26,12 @@ struct BlockAtomParams {
  * Auxiliary class converting atom parameters between actual values and scaled values used internally by the minimizer.
  */
 class BlockAtomParamsConverter {
-protected:
-    double frequency_step;
-    double position_step;
-    double log_scale_step;
-
-    double max_scaled_frequency;
-
 public:
+    const double frequency_step;
+    const double position_step;
+    const double log_scale_step;
+    const double max_scaled_frequency;
+
     BlockAtomParamsConverter() : frequency_step(1.0), position_step(1.0), log_scale_step(1.0), max_scaled_frequency(0.5) { }
 
     BlockAtomParamsConverter(double frequency_step, double position_step, double log_scale_step, double frequency_max);

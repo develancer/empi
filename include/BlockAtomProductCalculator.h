@@ -16,6 +16,8 @@ class BlockAtomProductCalculator {
 public:
     explicit BlockAtomProductCalculator(std::shared_ptr<Family> family);
 
+    [[nodiscard]] double calculate_min_squared_product(double frequency, double scale, const BlockAtomParamsConverter& converter) const;
+
     [[nodiscard]] double calculate_squared_product(const BlockAtomParams &p, const BlockAtomParams &q, double q_phase = 0.0) const;
 };
 

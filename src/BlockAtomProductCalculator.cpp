@@ -11,6 +11,34 @@
 BlockAtomProductCalculator::BlockAtomProductCalculator(std::shared_ptr<Family> family)
         : family(std::move(family)) {}
 
+double BlockAtomProductCalculator::calculate_min_squared_product(double frequency, double scale, const BlockAtomParamsConverter& converter) const {
+    const BlockAtomParams params_p(frequency, 0.0, scale);
+    const double dt = 0.5 * converter.position_step;
+    const double df = 0.5 * converter.frequency_step;
+    const double a = std::exp(0.5 * converter.log_scale_step);
+
+    double min_squared_product = 1.0;
+    for (int f_sign=-1; f_sign<=1; f_sign+=2) {
+        for (int t_sign=-1; t_sign<=1; t_sign+=2) {
+            {
+                const BlockAtomParams params_q(frequency + f_sign * df / a, t_sign * dt * a, scale * a);
+                if (params_q.frequency < 0 || params_q.frequency > 0.5) {
+                    continue;
+                }
+                min_squared_product = std::min(min_squared_product, calculate_squared_product(params_q, params_p));
+            }
+            {
+                const BlockAtomParams params_q(frequency + f_sign * df * a, t_sign * dt / a, scale / a);
+                if (params_q.frequency < 0 || params_q.frequency > 0.5) {
+                    continue;
+                }
+                min_squared_product = std::min(min_squared_product, calculate_squared_product(params_q, params_p));
+            }
+        }
+    }
+    return min_squared_product;
+}
+
 double BlockAtomProductCalculator::calculate_squared_product(const BlockAtomParams &p, const BlockAtomParams &q, double q_phase) const {
     IndexRange p_range = family->compute_range(p.position, p.scale);
     IndexRange q_range = family->compute_range(q.position, q.scale);

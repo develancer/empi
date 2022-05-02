@@ -56,7 +56,7 @@ public:
      * @param allow_overstep whether we can assume that samples before and after the actual signal range are equal to zero
      */
     Block(PinnedArray2D<double> data, std::shared_ptr<Family> family, double scale, PinnedArray1D<double> envelope,
-          PinnedArray1D<Corrector> correctors, std::shared_ptr<BlockAtomParamsConverter> converter, double booster,
+          PinnedArray1D<Corrector> correctors, std::shared_ptr<BlockAtomParamsConverter> converter,
           int window_length, int input_shift, Extractor extractor, bool allow_overstep = true);
 
     /**

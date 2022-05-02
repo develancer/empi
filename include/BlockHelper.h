@@ -18,7 +18,7 @@
 class BlockHelper {
 public:
     static Block create_block(PinnedArray2D<double> data, std::shared_ptr<Family> family, double scale,
-                             std::shared_ptr<BlockAtomParamsConverter> converter, double booster,
+                             std::shared_ptr<BlockAtomParamsConverter> converter,
                              int window_length, int output_bins, int input_shift, Extractor extractor, SpectrumCalculator& calculator, bool allow_overstep = true);
 
     static PinnedArray1D<double> generate_envelope(const Family* family, double scale);
