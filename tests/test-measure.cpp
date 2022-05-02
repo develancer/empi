@@ -61,5 +61,9 @@ int main(int argc, char **argv) {
         }
     }
 
-    printf("%lf %lf %lf  %lf\n", energy_error, scale, frequency, result);
+    putchar('\n');
+    BlockAtomParamsConverter converter(2*frequency_step, 2*position_step, 2*log_scale_step, 0.5);
+    double other_result = calculator.calculate_min_squared_product(params.frequency, params.scale, converter);
+
+    printf("%lf %lf %lf  %lf  %lf\n", energy_error, scale, frequency, result, other_result);
 }
