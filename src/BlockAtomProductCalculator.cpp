@@ -5,6 +5,7 @@
  **********************************************************/
 #include "BlockAtomProductCalculator.h"
 #include "Extractor.h"
+#include "nelder_mead.h"
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -48,4 +49,30 @@ double BlockAtomProductCalculator::calculate_squared_product(const BlockAtomPara
         product = corrector.compute(sum_pq / std::sqrt(sum_q2 * sum_ep2));
     }
     return product;
+}
+
+double BlockAtomProductCalculator::calculate_squared_product(const BlockAtomParams &p, const BlockAtomParams &q) const {
+    const int GRID = 10;
+    double best_phase = 0.0;
+    double min_product2 = INFINITY;
+    for (int i=0; i<GRID; ++i) {
+        double phase = 2 * M_PI * i / GRID;
+        double product2 = calculate_squared_product(p, q, phase);
+        if (product2 < min_product2) {
+            min_product2 = product2;
+            best_phase = phase;
+        }
+    }
+    auto result = nelder_mead<double,1>(
+            [&](const std::array<double,1>& x) {
+                return this->calculate_squared_product(p, q, x[0]);
+            },
+            std::array<double,1>{best_phase},
+            0.01,
+            std::array<double,1>{0.1}
+    );
+    if (result.ifault) {
+        throw std::runtime_error("cannot find optimal phase");
+    }
+    return result.ynewlo;
 }

@@ -10,6 +10,9 @@
 #include <cassert>
 #include <cmath>
 #include <cstddef>
+#include <map>
+#include <memory>
+#include <string>
 #include "IndexRange.h"
 #include "Types.h"
 
@@ -23,6 +26,8 @@
  */
 class Family {
 public:
+    static const std::map<std::string, std::shared_ptr<Family>> ALL;
+
     /**
      * Calculate number of samples needed to store all non-zero values of the realization of this envelope function
      * with a given scale, centered at a given position.
@@ -141,6 +146,28 @@ public:
      * @return x
      */
     [[nodiscard]] virtual double inv_time_integral(double value) const = 0;
+
+    /**
+     * Calculate the squared optimality factor depending on ε²
+     * needed for proper global parameter optimization.
+     * To obtain the full squared optimality factor,
+     * one needs to multiply optimality_factor_e2 and optimality_factor_sf.
+     *
+     * @param epsilon2 energy error coefficient (ε²) in optimal dictionary construction
+     * @return minimal squared scalar product between an atom in the dictionary and its neighborhood
+     */
+    virtual double optimality_factor_e2(double epsilon2) const = 0;
+
+    /**
+     * Calculate the squared optimality factor depending on scale × frequency
+     * needed for proper global parameter optimization.
+     * To obtain the full squared optimality factor,
+     * one needs to multiply optimality_factor_e2 and optimality_factor_sf.
+     *
+     * @param scale_frequency product of scale × frequency
+     * @return minimal squared scalar product between an atom in the dictionary and its neighborhood
+     */
+    virtual double optimality_factor_sf(double scale_frequency) const = 0;
 
     virtual ~Family() = default;
 };

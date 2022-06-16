@@ -16,7 +16,9 @@ class BlockAtomProductCalculator {
 public:
     explicit BlockAtomProductCalculator(std::shared_ptr<Family> family);
 
-    [[nodiscard]] double calculate_squared_product(const BlockAtomParams &p, const BlockAtomParams &q, double q_phase = 0.0) const;
+    [[nodiscard]] double calculate_squared_product(const BlockAtomParams &p, const BlockAtomParams &q) const;
+
+    [[nodiscard]] double calculate_squared_product(const BlockAtomParams &p, const BlockAtomParams &q, double q_phase) const;
 };
 
 #endif //EMPI_BLOCK_ATOM_PRODUCT_CALCULATOR_H

@@ -57,3 +57,11 @@ double GaussianFamily::time_integral(double x) const {
 double GaussianFamily::inv_time_integral(double value) const {
     return std::sqrt(-M_2_PI * std::log(value));
 }
+
+double GaussianFamily::optimality_factor_e2(double epsilon2) const {
+    return 1 - 1.5 * epsilon2;
+}
+
+double GaussianFamily::optimality_factor_sf(double sf) const {
+    return 1 - exp(-1.59 * sf - 2.11);
+}

@@ -7,6 +7,7 @@
 #include "Block.h"
 #include "Corrector.h"
 #include "Extractor.h"
+#include "GaussianFamily.h"
 #include "SpectrogramRequest.h"
 #include "Testing.h"
 #include "Types.h"
@@ -21,7 +22,8 @@ int main() {
     PinnedArray1D<Corrector> correctors(100);
 
     auto converter = std::make_shared<BlockAtomParamsConverter>();
-    Block block(data, nullptr, NAN, envelope, correctors, converter, NAN, 256, 30, extractorForTest);
+    auto family = std::make_shared<GaussianFamily>();
+    Block block(data, family, NAN, envelope, correctors, converter, NAN, 256, 30, extractorForTest);
 
     SpectrogramRequest request = block.buildRequest(0, 300);
     ASSERT_EQUALS(data.get(), request.data);
