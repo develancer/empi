@@ -2,23 +2,49 @@ empi
 ====
 
 Enhanced Matching Pursuit Implementation (empi)  
-Author: Piotr Różański <piotr@develancer.pl> ⓒ 2015–2021
+Author: Piotr Różański <piotr@develancer.pl> ⓒ 2015–2022
+
+**IMPORTANT**: Neither the official stable release of 1.0 is yet available, nor the
+current version of the _master_ codebase should be considered stable. Coming soon!
 
 ## What is empi?
 
 empi is an implementation of Matching Pursuit algorithm
 ([Mallat, Zhang 1993](http://dx.doi.org/10.1109/78.258082))
-with optimal Gabor dictionaries
-([Kuś, Różański, Durka 2013](http://dx.doi.org/10.1186/1475-925X-12-94)).
-It is a highly-optimized multithreaded version written in C++,
+with optimal dictionaries
+([Kuś, Różański, Durka 2013](http://doi.org/10.1186/1475-925X-12-94))
+supporting both Gabor atoms as well as atoms related to non-Gaussian envelopes
+([Różański 2020](https://doi.org/10.1049/iet-spr.2019.0246)).
+It is a highly-optimized multi-threaded version written in C++, with GPU support,
 designed as a faster replacement for
-[MP5](https://github.com/BrainTech/matching-pursuit). Therefore, it shares most
-of the input/output specification with MP5, and can be used as MP decomposition
-tool in [SVAROG](https://github.com/BrainTech/svarog).
+[MP5](https://github.com/BrainTech/matching-pursuit). Prior version shared most
+of the input/output specification with MP5, and could be used as MP decomposition
+tool in [SVAROG](https://github.com/BrainTech/svarog). Support for the current
+version is underway.
 
-The goal is an optimal decomposition of the input signal as a linear combination
-of functions from predefined set (dictionary) of Gabor atoms, including ordinary
-Gaussians as a special case for frequency = 0.
+The goal is to provide an optimal decomposition of the input signal as a linear
+combination of functions from predefined set (dictionary) consisting mainly of
+oscillating atoms. By combining the optimal dictionary construction with a
+detailed analysis of the maximum error within a single iteration,
+it can be used to simulate a continuous dictionary,
+therefore relieving the user from the necessity of defining the particular
+structure for the dictionary. What is even more important, it therefore completely
+eliminates the statistical bias caused by the dictionary structure—an important
+effect which has been earlier dealt with by e.g. introduction of stochastic
+dictionaries.
+
+There are two modes of CPU parallelization, which can also be used together.
+First, a number of independent workers can be started, and each worker will
+process a separate subset of segments and/or channels. Second, each worker can
+be started with a number of concurrent CPU threads. Either way, in addition to
+all workers' threads, an additional single thread will be active and responsible
+for writing the decomposition results from all workers, in proper order, to the
+output file.
+
+If the GPU devices are used in addition to CPU, each worker is started with one
+additional thread (corresponding to a separate CUDA stream) for each GPU device.
+The performance gain from enabling GPU devices, especially those with good
+double-precision floating point capabilities, is significant.
 
 ## How to get empi?
 
@@ -28,7 +54,8 @@ You can compile empi from source, or download the precompiled versions from the
 the precompiled binaries, you can skip the “Compilation” section altogether.
 However, since the purpose of the provided binaries is to be as compatible as
 possible, they may not take full advantage of your specific architecture. To
-achieve maximal performance, compiling empi from source is recommended.
+achieve maximal performance and/or use GPU in calculations, compiling empi
+from source is recommended.
 
 ### Compilation
 
@@ -63,7 +90,7 @@ _or_, if you need to build standalone binaries
 
 followed by
 
-	make
+	make empi
 
 in the directory where you cloned your repository; you can also do an
 out-of-source build, if you prefer. If successful, binary file “empi” shall
@@ -76,113 +103,135 @@ by calling
 
 Single invocation of empi will
 
-* read a single binary file (or its part),
-* decompose it as a linear combination of Gabor atoms, and
-* save the results as either SQLite or JSON
+* read a single binary signal file (or its part),
+* decompose it as a linear combination of well-defined structures, and
+* save the results as either SQLite (default) or JSON
 
 Directory _demo_ includes Python and Matlab/Octave scripts demonstrating
 how to access data from the resulting SQLite decomposition file.
 
-empi needs to be run with a single command-line argument: a path to the
-configuration file. If run with no arguments, it will print the correct usage.
-Default output format is SQLite; however, if `-j` is given as an argument,
-JSON output file will be created instead.
+empi needs to be run with at least two command-line argument: a path to the input
+file and a path to the output file. It can be run with `--help` flag to list all
+possible flags and arguments:
 
-### Configuration file format
+```
+Enhanced Matching Pursuit Implementation (empi)
+Usage: empi [OPTIONS] input_file output_file
 
-Let us start with a sample configuration file:
+Positionals:
+  input_file TEXT REQUIRED    Path to the input signal file or input configuration file
+  output_file TEXT REQUIRED   Path for the output file unless configuration file is used
 
-	energyError 0.01
-	maximalNumberOfIterations 50
-	energyPercent 99.0
+Options:
+  -h,--help                   Print this help message and exit
+  -c INT=1                    Number of channels in the input signal
+  -f FLOAT                    Sampling frequency of the input signal in hertz (default: 1 Hz)
+  -i INT                      Maximum number of iterations (default: no limit)
+  -o TEXT                     Parameter optimization mode: none|local|global (default: global)
+  -r FLOAT=0.01               Energy of the residual as a fraction of the total signal energy
+  --channels TEXT             Range of channels to process, e.g. 1-3,5,8-9 (default: all)
+  --cpu-threads UINT=6        Number of CPU threads for each worker
+  --cpu-workers UINT=1        Number of independent CPU workers to run
+  --delta                     Include delta-type atoms
+  --energy-error FLOAT=0.05   Epsilon-squared parameter corresponding to the dictionary size
+  --gpu-id TEXT               Comma-separated ID list of GPU device(s) to use (default: none)
+  --input64                   Read input data as double-precision (64-bit) floating point values (default: read as 32-bit values)
+  --mmp1 Excludes: --mmp3     Use multi-variate decomposition with constant phase across channels
+  --mmp3 Excludes: --mmp1     Use multi-variate decomposition with variable phase across channels
+  --opt-max-iter INT=10000    Maximum number of iterations for local parameter optimization
+  --opt-target FLOAT=1e-05    Target accuracy (relative to the initial dictionary size) for local parameter optimization
+  --residual-log-dir TEXT     Directory in which residual energy log files should be created (default: none)
+  --segment-size INT          Number of samples in each segment (default: all samples)
+  --segments TEXT Needs: --segment-size
+                              Range of signal segments, e.g. 1-100,201-300 (default: all)
+  --gabor                     Include atoms with Gaussian envelope (not needed if any other --gabor-* option is given)
+  --gabor-freq-max FLOAT      Maximum frequency (in hertz) for Gaussian envelope (default: auto)
+  --gabor-scale-min FLOAT     Minimum scale (in seconds) for Gaussian envelope (default: auto)
+  --gabor-scale-max FLOAT     Maximum scale (in seconds) for Gaussian envelope (default: auto)
+  --gabor-half-width FLOAT=3  Half-width of the Gaussian envelope function
+```
 
-	MP SMP
+### Command-line options
 
-	nameOfDataFile signal.bin
-	nameOfOutputDirectory .
-	samplingFrequency 128.0
-
-	numberOfChannels 3
-	selectedChannels 1-3
-
-	numberOfSamplesInEpoch 1280
-	selectedEpochs 1-2
-
-Most parameters are straightforward, but we shall describe them one by one:
-
-* _energyError_ is the ε² parameter in optimal Gabor dictionary construction.
-Usually the values will be close to 0. Smaller value will allow for a more
-precise decomposition, but it will also engage more time and RAM.
-
-* _maximalNumberOfIterations_ is the upper limit for the number of iterations,
-and therefore, a maximal number of atoms in the resulting decomposition.
-
-* _energyPercent_ is the percent of the energy that we require to be “explained”
-by decomposition, Requiring 99% of energy to be explained means that we will be
-performing decomposition until residual energy fall below 1% of the total energy
-of the signal.
-
-The decomposition will iterate until _maximalNumberOfIterations_ or
-_energyPercent_ will be fulfilled, whichever comes first.
-
-* _MP_ is a selected variant of Matching Pursuit. Following variants are supported:
-
-	* “SMP” decomposes every channel independently
-
-	* “MMP1” finds, in every iteration, set of atoms which differ only in amplitude,
-	optimizing sum of squares of the scalar products across channels
-
-	* “MMP2” finds, in every iteration, set of atoms which differ only in amplitude,
-	optimizing sum of the scalar products across channels (much faster than MMP1)
-
-	* “MMP3” finds, in every iteration, set of atoms which differ in amplitude
-	and/or phase, optimizing sum of squares of the scalar products across channels
-
-* _nameOfDataFile_ is a path to the binary signal file, relative to the current
-directory. The input file should consist of 32-bit float values in the byte order
-of the current machine (no byte-order conversion is performed). For multichannel
+There are two required positional arguments:
+1. _input_file_ is the full (or relative to the current directory) path to the input file.
+The input file should consist of 32-bit (or 64-bit if the `--input64` flag is given)
+floating-point values in the byte order  of the current machine
+(no byte-order conversion is performed). For multichannel
 signals, first come the samples for all channels at t=0, then for all channels
 at t=Δt, and so forth. In other words, the signal should be written
 in column-major order (rows = channels, columns = samples).
+2. _output_file_ is the full (or relative to the current directory) path for the output file.
+If the path ends in `.json`, JSON-formatted text file will be created. 
+Otherwise, SQLite database file will be created.
 
-* _nameOfOutputDirectory_ is a path to the output directory, relative to the
-current directory. The output file will be named based on the name of the input
-file, e.g. if input file is “signal.bin”, the output will be named either
-“signal_XYZ.b” or “signal_XYZ.json” (depending on the selected output format),
-where XYZ is the selected variant of MP (parametr _MP_).
+The optional parameters are described below:
 
-* _samplingFrequency_ is a sampling frequency of the input signal, specified in
-hertz.
+#### Properties of the input file
 
-* _numberOfChannels_ is a number of all channels in the input signal.
-
-* _selectedChannels_ specify which channels should be read from the signal and
-decomposed. These can be specified as a single channel `1`, as an interval `1-5`,
-as a list `3,4` or mixed: `1-2,5,8-10`.
-
-* _numberOfSamplesInEpoch_ specifies the size of each signal segment (in samples);
-segments will be processed in order, and their decomposition will be written
-to the same output file. This parameter is optional; if not given, the entire
-signal will be processed as a single segment.
-
-* _selectedEpochs_ is only valid with _numberOfSamplesInEpoch_, and it specifies
+* `-c` represents the number of all channels in the input file, the default corresponding to a single-channel signal (as with `-c 1`).
+* `-f` represents the signal's sampling frequency in hertz, the default being 1 Hz.
+* `--channels` allows to specify the subset of channels (between 1 and the value of `-c`)
+that should be read from the signal and decomposed.
+These can be specified as a single channel `1`, as an interval `1-5`, as a list `3,4` or mixed: `1-2,5,8-10`.
+* `--input64` assumes the input signal file consists of 64-bit floating point values, as opposed to the 32-bit as default.
+* `--segment-size` specifies the size of each signal segment (in samples);
+  segments will be processed independently, and their decomposition will be written
+  to the same output file. If this parameter is absent, the entire
+  signal will be processed as a single segment.
+* `--segments` is only valid with `--segment-size`, and it specifies
 a list of epoch numbers (starting from 1) to be processed. These can be passed
 as a single epoch `1`, as an interval `1-100`, as a list `1,2,3` or mixed:
-`1-100,201-300,400`. This parameter is optional; if not given, then all epochs
-(the entire signal) will be processed.
+`1-100,201-300,400`. If not given, all epochs (the entire signal) will be processed.
 
-* _minAtomScale_ specifies the minimum scale of atoms in the MP dictionary.
-If not specified, it defaults to the scale length of 2 samples
-(scale in seconds = 2 / sampling frequency)
+#### Decomposition process
 
-* _maxAtomScale_ specifies the maximum scale of atoms in the MP dictionary.
-If not specified, it defaults to the length of the analysed signal.
+The decomposition will iterate until `-i` iterations or
+`-r` residual energy is reached, whichever comes first.
 
-* _maxAtomFrequency_ specifies the maximum frequency (in hertz)
-of atoms in the MP dictionary.
+* `-i` specifies an upper limit for the number of iterations,
+  and therefore, a maximal number of atoms in the resulting decomposition.
+* `-r` is the percent of the residual energy that can be left un-explained
+  by decomposition. For example, specifying `-r 0.01` corresponds to
+  performing the decomposition until the energy of the residual
+  falls below 1% of the initial energy of the signal.
+* `--mmp1` specifies a constant-phase multi-variate decomposition,
+  while `--mmp3` specifies a variable-phase variant. If neither is given, 
+  each channel is processed separately. Detailed description of multi-variate
+  decomposition modes can be found in the literature, e.g.
+  [Kuś, Różański, Durka 2013](http://doi.org/10.1186/1475-925X-12-94).
 
-Specifying _minAtomScale_, _maxAtomScale_ and _maxAtomFrequency_ is not
-mandatory, but it allows to greatly reduce the computational time.
+#### Structure of the dictionary
+
+* `--energy-error` specifies the ε² parameter in optimal dictionary construction.
+Usually the values will be close to 0. Smaller value will allow for a more
+precise decomposition, but it will also engage more time and RAM.
+When simulating the continuous dictionary (`-o` option), this parameter does not affect
+the results, only time and memory consumption. The default value of 0.05 is approximately
+optimal for simulating continuous dictionaries.
+
+* `--gabor-scale-min` specifies the minimum scale of Gabor atoms in the dictionary.
+If not specified, the minimum scale is taken as the shortest scale permitted
+by the dictionary construction for the given value of ε².
+
+* `--gabor-scale-max` specifies the maximum scale of Gabor atoms in the dictionary.
+If not specified, it defaults to the length of the signal segment.
+
+* `--gabor-freq-max` specifies the maximum frequency (in hertz)
+of Gabor atoms in the dictionary. If not specified, defaults to Nyquist frequency.
+
+Specifying `--gabor-scale-min`, `--gabor-scale-max` and `--gabor-freq-max` is not
+mandatory, but it allows to additionally reduce the computational time.
+These three options have their counterparts for other envelope functions as well
+(e.g. `--tri-*`).
+
+#### Parallelization scheme
+
+* `--cpu-workers` defines the number of independent workers, where each
+worker will independently analyse different subset of signal segments.
+* `--cpu-threads` defines the number of CPU computation threads per each worker.
+* `--gpu-id` (only if compiled with GPU support) defines the comma-separated list
+of GPU devices that should assist in the decomposition.
 
 ## Disclaimer
 
