@@ -14,7 +14,7 @@ Block BlockHelper::create_block(PinnedArray2D<double> data, std::shared_ptr<Fami
                          int window_length, int output_bins, int input_shift, Extractor extractor, SpectrumCalculator& calculator, bool allow_overstep) {
     auto envelope = generate_envelope(family.get(), scale);
     auto correctors = generate_correctors(envelope, window_length, output_bins, calculator);
-    return Block(std::move(data), std::move(family), scale, envelope, correctors, std::move(converter), booster, window_length, input_shift, extractor, allow_overstep);
+    return {std::move(data), std::move(family), scale, envelope, correctors, std::move(converter), booster, window_length, input_shift, extractor, allow_overstep};
 }
 
 PinnedArray1D<double> BlockHelper::generate_envelope(const Family* family, double scale) {

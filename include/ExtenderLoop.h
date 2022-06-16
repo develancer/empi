@@ -20,9 +20,9 @@ public:
     explicit ExtenderLoop(std::shared_ptr<TaskQueue<BasicAtomPointer>> task_queue)
             : task_queue(std::move(task_queue)) {}
 
-    void operator()() {
+    void operator()(bool wait = true) {
         BasicAtomPointer atom;
-        while (task_queue->get(atom)) {
+        while (task_queue->get(atom, wait)) {
             atom->extend(true); // ExtendedAtomPointer will be put into cache
             task_queue->notify();
         }

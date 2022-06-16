@@ -43,11 +43,10 @@ public:
         lock.unlock();
 
         task_count_up_or_terminated.notify_one();
-        wait_for_tasks();
     }
 
     /**
-     * Add all tasks from the given list to the queue and wait until all tasks are finished.
+     * Add all tasks from the given list to the queue.
      * This method should be called by the producer thread.
      */
     void put(std::list<T> &&list_of_tasks) {
@@ -57,7 +56,6 @@ public:
         lock.unlock();
 
         task_count_up_or_terminated.notify_all();
-        wait_for_tasks();
     }
 
     /**
@@ -66,12 +64,15 @@ public:
      * After processing the task, each consumer should call notify() prior to get-ting the next one.
      *
      * @param task reference to store the task taken from the queue
+     * @param wait if true, and the queue is empty, wait until the task is available or the queue terminates;
+     * if false, return false immediately
      * @return true if task was taken from the queue, false if the queue was terminated instead
+     * (or not available and wait=false)
      */
-    bool get(T &task, bool from_back = false) {
+    bool get(T &task, bool wait = true, bool from_back = false) {
         return from_back
-               ? custom_get(task, &decltype(tasks)::back, &decltype(tasks)::pop_back)
-               : custom_get(task, &decltype(tasks)::front, &decltype(tasks)::pop_front);
+               ? custom_get(task, wait, &decltype(tasks)::back, &decltype(tasks)::pop_back)
+               : custom_get(task, wait, &decltype(tasks)::front, &decltype(tasks)::pop_front);
     }
 
     /**
@@ -95,10 +96,27 @@ public:
         unfinished_count_down_or_terminated.notify_all();
     }
 
-private:
-    bool custom_get(T &task, T &(std::list<T>::*ref)(), void (std::list<T>::*pop)()) {
+    /**
+     * Wait until all tasks are finished.
+     * This method should be called by the producer thread.
+     */
+    void wait_for_tasks() {
         std::unique_lock lock(mutex);
-        task_count_up_or_terminated.wait(lock, [&] { return terminated || !tasks.empty(); });
+        unfinished_count_down_or_terminated.wait(lock, [&] { return terminated || !unfinished_count; });
+        if (unfinished_count) {
+            throw std::logic_error("TaskQueue was terminated while waiting for tasks");
+        }
+        lock.unlock();
+    }
+
+private:
+    bool custom_get(T &task, bool wait, T &(std::list<T>::*ref)(), void (std::list<T>::*pop)()) {
+        std::unique_lock lock(mutex);
+        if (wait) {
+            task_count_up_or_terminated.wait(lock, [&] { return terminated || !tasks.empty(); });
+        } else if (tasks.empty()) {
+            return false;
+        }
         bool result = false;
         if (!terminated) {
             task = (tasks.*ref)();
@@ -107,15 +125,6 @@ private:
         }
 
         return result;
-    }
-
-    void wait_for_tasks() {
-        std::unique_lock lock(mutex);
-        unfinished_count_down_or_terminated.wait(lock, [&] { return terminated || !unfinished_count; });
-        if (unfinished_count) {
-            throw std::logic_error("TaskQueue was terminated while waiting for tasks");
-        }
-        lock.unlock();
     }
 };
 

@@ -10,13 +10,13 @@
 #include "BlockHelper.h"
 #include "Extractor.h"
 #include "GaussianFamily.h"
-#include "WorkerFFTW.h"
+#include "SpectrogramCalculatorFFTW.h"
 #include "SpectrogramRequest.h"
 #include "Testing.h"
 
 const int N = 300;
 
-void test(WorkerFFTW &calculator, double frequency, int position, double scale, double phase0, double phase1, double amplitude0, double amplitude1) {
+void test(SpectrogramCalculatorFFTW &calculator, double frequency, int position, double scale, double phase0, double phase1, double amplitude0, double amplitude1) {
     std::shared_ptr<GaussianFamily> family = std::make_shared<GaussianFamily>();
     index_t envelope_offset;
     index_t envelope_length = family->size_for_values(position, scale, nullptr);
@@ -61,7 +61,7 @@ void test(WorkerFFTW &calculator, double frequency, int position, double scale, 
 }
 
 int main() {
-    WorkerFFTW fftw(2, {256});
+    SpectrogramCalculatorFFTW fftw(2, {256});
 
     test(fftw,
          9.0 / 256, 144, 10,

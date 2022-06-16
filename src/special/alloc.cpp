@@ -10,6 +10,10 @@
 // in case it isn't needed (for some unit tests) or CUDA is not available.
 // Each executable should link with either alloc.cpp or alloc.cu, but not both at once.
 
+void cuda_host_disable() {
+    // nothing here
+}
+
 void *cuda_host_malloc(size_t length) {
     void *result = malloc(length);
     if (!result) {

@@ -3,66 +3,64 @@
  *   Enhanced Matching Pursuit Implementation (empi)      *
  * See README.md and LICENCE for details.                 *
  **********************************************************/
-#include <algorithm>
 #include <thread>
-#include "BlockAtom.h"
-#include "Computer.h"
 #include "ExtenderLoop.h"
-#include "WorkerLoop.h"
-
-static void set_thread_affinity(std::thread &thread, unsigned cpu_index) {
-    cpu_set_t cpuset;
-    CPU_ZERO(&cpuset);
-    CPU_SET(cpu_index, &cpuset);
-    pthread_setaffinity_np(thread.native_handle(), sizeof(cpu_set_t), &cpuset);
-}
+#include "Worker.h"
 
 //////////////////////////////////////////////////////////////////////////////
 
-Computer::Computer(Array2D<real> data, OptimizationMode mode) : data(std::move(data)), mode(mode) {
+Worker::Worker(Array2D<real> data, unsigned cpu_threads, OptimizationMode mode) : data(std::move(data)), mode(mode) {
     atom_queue = std::make_shared<TaskQueue<BasicAtomPointer>>();
-    task_queue = std::make_shared<TaskQueue<SpectrogramRequest>>();
+    spectrogram_queue = std::make_shared<TaskQueue<SpectrogramRequest>>();
     reset();
     if (mode == OPTIMIZATION_GLOBAL) {
-        for (unsigned i = 0; i < std::thread::hardware_concurrency(); ++i) {
-            threads.emplace_back(ExtenderLoop(atom_queue));
-            set_thread_affinity(threads.back(), i);
+        for (unsigned i = 1; i < cpu_threads; ++i) {
+            threads.emplace_back(ExtenderLoop{atom_queue});
         }
     }
 }
 
-Computer::~Computer() {
+Worker::~Worker() {
     if (atom_queue) {
         atom_queue->terminate();
     }
-    if (task_queue) {
-        task_queue->terminate();
+    if (spectrogram_queue) {
+        spectrogram_queue->terminate();
     }
     for (auto &thread : threads) {
         thread.join();
     }
 }
 
-void Computer::add_calculator(std::unique_ptr<Worker> calculator, bool prefer_long_fft) {
-    static int cpu_index = 0;
-    threads.emplace_back(WorkerLoop(task_queue, std::move(calculator), prefer_long_fft));
-    set_thread_affinity(threads.back(), cpu_index++ % std::thread::hardware_concurrency());
+void Worker::add_calculator(std::unique_ptr<SpectrogramCalculator> calculator, bool prefer_long_fft) {
+    if (!primary_calculator_loop) {
+        primary_calculator_loop = std::make_unique<SpectrogramLoop>(spectrogram_queue, std::move(calculator), prefer_long_fft);
+    } else {
+        threads.emplace_back(SpectrogramLoop(spectrogram_queue, std::move(calculator), prefer_long_fft));
+    }
 }
 
-void Computer::add_dictionary(std::unique_ptr<Dictionary> dictionary) {
+void Worker::add_dictionary(std::unique_ptr<Dictionary> dictionary) {
     dictionaries.push_back(std::move(dictionary));
 }
 
-ExtendedAtomPointer Computer::get_next_atom() {
+ExtendedAtomPointer Worker::get_next_atom() {
     std::list<SpectrogramRequest> requests;
     for (auto &dictionary : dictionaries) {
         dictionary->fetch_requests(updated_index_range, requests);
     }
-    requests.sort([](const SpectrogramRequest &a, const SpectrogramRequest &b) {
-        return a.window_length < b.window_length;
-    });
+    if (!requests.empty()) {
+        if (!primary_calculator_loop) {
+            throw std::logic_error("need at least one SpectrogramCalculator instance");
+        }
+        requests.sort([](const SpectrogramRequest &a, const SpectrogramRequest &b) {
+            return a.window_length < b.window_length;
+        });
 
-    task_queue->put(std::move(requests));
+        spectrogram_queue->put(std::move(requests));
+        (*primary_calculator_loop)(false);
+        spectrogram_queue->wait_for_tasks();
+    }
 
     BasicAtomPointer best_match;
     for (auto &dictionary : dictionaries) {
@@ -86,6 +84,8 @@ ExtendedAtomPointer Computer::get_next_atom() {
             candidates.splice(candidates.end(), dictionary->get_candidate_matches(best_atom->energy));
         }
         atom_queue->put(std::list<BasicAtomPointer>(candidates));
+        ExtenderLoop{atom_queue}(false);
+        atom_queue->wait_for_tasks();
         for (const auto &candidate : candidates) {
             ExtendedAtomPointer another_atom = candidate->extend(true);
             if (another_atom->energy > best_atom->energy) {
@@ -98,7 +98,7 @@ ExtendedAtomPointer Computer::get_next_atom() {
     return best_atom;
 }
 
-std::list<ProtoRequest> Computer::get_proto_requests() {
+std::list<ProtoRequest> Worker::get_proto_requests() {
     std::list<ProtoRequest> proto_requests;
     for (auto &dictionary : dictionaries) {
         dictionary->fetch_proto_requests(proto_requests);
@@ -106,6 +106,6 @@ std::list<ProtoRequest> Computer::get_proto_requests() {
     return proto_requests;
 }
 
-void Computer::reset() {
+void Worker::reset() {
     updated_index_range = data.length();
 }

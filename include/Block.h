@@ -15,7 +15,6 @@
 #include "Extractor.h"
 #include "PinnedArray.h"
 #include "SpectrogramRequest.h"
-#include "SpectrumCalculator.h"
 #include "Types.h"
 
 /**

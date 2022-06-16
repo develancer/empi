@@ -4,11 +4,11 @@
  * See README.md and LICENCE for details.                 *
  **********************************************************/
 #include "Array.h"
-#include "WorkerDummy.h"
+#include "SpectrogramCalculatorDummy.h"
 
 //////////////////////////////////////////////////////////////////////////////
 
-void WorkerDummy::compute(const SpectrogramRequest &request) {
+void SpectrogramCalculatorDummy::compute(const SpectrogramRequest &request) {
     double tmp_for_extractor[request.output_bins];
     request.assertCorrectness();
 

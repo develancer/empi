@@ -11,9 +11,6 @@ static const double NORM = std::pow(0.9 * M_PI, 0.25);
 
 //////////////////////////////////////////////////////////////////////////////
 
-TriangularFamily::TriangularFamily() {
-}
-
 double TriangularFamily::max_arg() const {
     return MIN_MAX;
 }
@@ -71,4 +68,12 @@ double TriangularFamily::time_integral(double x) const {
 
 double TriangularFamily::inv_time_integral(double value) const {
     return solve_integral(&TriangularFamily::time_integral, value);
+}
+
+double TriangularFamily::optimality_factor_e2(double epsilon2) const {
+    return 1 - 1.52 * epsilon2;
+}
+
+double TriangularFamily::optimality_factor_sf(double sf) const {
+    return 1 - exp(-0.9 * sf - 1.97);
 }

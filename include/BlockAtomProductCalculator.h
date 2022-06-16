@@ -13,12 +13,12 @@
 class BlockAtomProductCalculator {
     std::shared_ptr<Family> family;
 
-    [[nodiscard]] index_t calculate_mean_index(const BlockAtomParams &p, const BlockAtomParams &q, const IndexRange &pq_range) const;
-
 public:
-    BlockAtomProductCalculator(std::shared_ptr<Family> family);
+    explicit BlockAtomProductCalculator(std::shared_ptr<Family> family);
 
-    double calculate_squared_product(const BlockAtomParams &p, const BlockAtomParams &q, double q_phase = 0.0) const;
+    [[nodiscard]] double calculate_squared_product(const BlockAtomParams &p, const BlockAtomParams &q) const;
+
+    [[nodiscard]] double calculate_squared_product(const BlockAtomParams &p, const BlockAtomParams &q, double q_phase) const;
 };
 
 #endif //EMPI_BLOCK_ATOM_PRODUCT_CALCULATOR_H

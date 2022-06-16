@@ -14,6 +14,7 @@
 #include <vector>
 #include "sqlite3.h"
 #include "Array.h"
+#include "EpochIndex.h"
 #include "ExportedAtom.h"
 #include "File.h"
 
@@ -22,10 +23,10 @@
  */
 class BookWriter {
 protected:
-    int total_segments_written;
+    const double freq_sampling;
+    const index_t epoch_sample_count;
 
-protected:
-    explicit BookWriter();
+    explicit BookWriter(double freq_sampling, index_t epoch_sample_count);
 
 public:
     virtual ~BookWriter() = default;
@@ -39,11 +40,9 @@ public:
      * Write a single multi-channel decomposition and signal segment.
      *
      * @param data reference to multi-channel data of the analysed signal segment
-     * @param segment_offset offset of the segment (in samples) relative to the start of the signal
-     * @param freq_sampling sampling frequency (Hz)
      * @param atoms array of lists of exported atom data, one list for each signal channel
      */
-    virtual void write(Array2D<double> data, index_t segment_offset, double freq_sampling, const std::vector<std::list<ExportedAtom>> &atoms) = 0;
+    virtual void write(Array2D<double> data, EpochIndex epoch, const std::vector<std::list<ExportedAtom>> &atoms) = 0;
 };
 
 /**
@@ -53,7 +52,7 @@ class FileBackedBookWriter : public BookWriter {
 protected:
     File file;
 
-    explicit FileBackedBookWriter(const std::string &path_to_book_file);
+    explicit FileBackedBookWriter(double freq_sampling, index_t epoch_sample_count, const std::string &path_to_book_file);
 
 public:
     /**
@@ -66,6 +65,8 @@ public:
  * Writer for decomposition results in JSON file format.
  */
 class JsonBookWriter : public FileBackedBookWriter {
+    int total_segments_written = 0;
+
 public:
     /**
      * Create a new writer to write results to the given JSON file.
@@ -73,7 +74,8 @@ public:
      *
      * @param path_to_book_file output file path
      */
-    explicit JsonBookWriter(const std::string &path_to_book_file) : FileBackedBookWriter(path_to_book_file) {}
+    explicit JsonBookWriter(double freq_sampling, index_t epoch_sample_count, const std::string &path_to_book_file)
+    : FileBackedBookWriter(freq_sampling, epoch_sample_count, path_to_book_file) {}
 
     /**
      * Finalize writing to output file. This should always be called after all segments have been written.
@@ -84,17 +86,18 @@ public:
      * Write a single multi-channel decomposition and signal segment.
      *
      * @param data reference to multi-channel data of the analysed signal segment
-     * @param segment_offset offset of the segment (in samples) relative to the start of the signal
-     * @param freq_sampling sampling frequency (Hz)
+     * @param epoch index of epoch, the first epoch being 0
      * @param atoms array of lists of exported atom data, one list for each signal channel
      */
-    void write(Array2D<double> data, index_t segment_offset, double freq_sampling, const std::vector<std::list<ExportedAtom>> &atoms) final;
+    void write(Array2D<double> data, EpochIndex epoch, const std::vector<std::list<ExportedAtom>> &atoms) final;
 };
 
 /**
  * Writer for decomposition results in SQLite file format.
  */
 class SQLiteBookWriter : public BookWriter {
+    int total_segments_written = 0;
+
 protected:
     std::shared_ptr<sqlite3> db;
     std::shared_ptr<sqlite3_stmt> stmt_insert_atom;
@@ -127,7 +130,7 @@ public:
      *
      * @param path_to_book_file output file path
      */
-    explicit SQLiteBookWriter(const std::string &path_to_book_file);
+    explicit SQLiteBookWriter(double freq_sampling, index_t epoch_sample_count, const std::string &path_to_book_file);
 
     /**
      * Finalize writing to output file. This should always be called after all segments have been written.
@@ -138,11 +141,10 @@ public:
      * Write a single multi-channel decomposition and signal segment.
      *
      * @param data reference to multi-channel data of the analysed signal segment
-     * @param segment_offset offset of the segment (in samples) relative to the start of the signal
-     * @param freq_sampling sampling frequency (Hz)
+     * @param epoch index of epoch, the first epoch being 0
      * @param atoms array of lists of exported atom data, one list for each signal channel
      */
-    void write(Array2D<double> data, index_t segment_offset, double freq_sampling, const std::vector<std::list<ExportedAtom>> &atoms) final;
+    void write(Array2D<double> data, EpochIndex epoch, const std::vector<std::list<ExportedAtom>> &atoms) final;
 };
 
 #endif // EMPI_BOOK_WRITER_H

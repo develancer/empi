@@ -9,13 +9,12 @@
 #include <memory>
 #include <set>
 #include <utility>
-#include <vector>
 #include "Array.h"
 #include "Corrector.h"
 #include "CUDA.h"
 #include "IndexRange.h"
 #include "PinnedArray.h"
-#include "WorkerCUDA.h"
+#include "SpectrogramCalculatorCUDA.h"
 
 char CudaException::buffer[256];
 
@@ -289,13 +288,15 @@ Array2D<T> cuda_dev_array_2d(size_t n, size_t m) {
 std::shared_ptr<CUstream_st> cuda_create_stream() {
     cudaStream_t stream;
     cuda_check(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));
-    return std::shared_ptr<CUstream_st>(stream, cudaStreamDestroy);
+    return {stream, cudaStreamDestroy};
 }
 
 //////////////////////////////////////////////////////////////////////////////
 
 class CudaTask {
+    const int device;
     std::map<std::pair<int, int>, cufftHandle> plans;
+    CudaCallback callback;
 
     std::shared_ptr<CudaCallbackInfo> info;
     std::shared_ptr<CudaCallbackInfo> dev_info;
@@ -339,7 +340,7 @@ class CudaTask {
     }
 
 public:
-    CudaTask(int channel_count, const std::list<ProtoRequest> &proto_requests) {
+    CudaTask(int channel_count, const std::list<ProtoRequest> &proto_requests, int device) : device(device) {
         int max_envelope_length = 0;
         int max_output_bins = 0;
         int max_window_length = 0;
@@ -349,6 +350,8 @@ public:
             max_window_length = std::max(max_window_length, proto_request.window_length);
         }
 
+        cuda_check(cudaSetDevice(device));
+        callback.initialize();
         stream = cuda_create_stream();
 
         info.reset(cuda_host_alloc<CudaCallbackInfo>(1), cuda_host_free);
@@ -424,9 +427,9 @@ public:
                         CUFFT_D2Z, how_many, &work_size
                 ));
                 max_work_size = std::max(max_work_size, work_size);
-                associateCallbackWithPlan(handle, dev_info.get());
+                callback.associate(handle, dev_info.get());
                 cufft_check(cufftSetStream(handle, stream.get()));
-                plans.emplace(std::make_pair(window_length, how_many), std::move(handle));
+                plans.emplace(std::make_pair(window_length, how_many), handle);
             }
         }
 
@@ -437,12 +440,14 @@ public:
     }
 
     ~CudaTask() {
+        cuda_check(cudaSetDevice(device));
         for (auto &pair : plans) {
             cufftDestroy(pair.second);
         }
     }
 
     void compute(const SpectrogramRequest &request) {
+        cuda_check(cudaSetDevice(device));
         const index_t total_input_length = request.envelope_length + (request.how_many - 1) * request.input_shift;
         IndexRange overlap = IndexRange(-request.input_offset, request.channel_length - request.input_offset).overlap(total_input_length);
         if (!overlap) {
@@ -498,11 +503,11 @@ public:
 
 //////////////////////////////////////////////////////////////////////////////
 
-WorkerCUDA::WorkerCUDA(int channel_count, const std::list<ProtoRequest> &proto_requests) {
-    task = std::make_shared<CudaTask>(channel_count, proto_requests);
+SpectrogramCalculatorCUDA::SpectrogramCalculatorCUDA(int channel_count, const std::list<ProtoRequest> &proto_requests, int device) {
+    task = std::make_shared<CudaTask>(channel_count, proto_requests, device);
 }
 
-void WorkerCUDA::compute(const SpectrogramRequest &request) {
+void SpectrogramCalculatorCUDA::compute(const SpectrogramRequest &request) {
     request.assertCorrectness();
     task->compute(request);
 }

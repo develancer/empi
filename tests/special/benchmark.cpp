@@ -1,7 +1,7 @@
 #include "Array.h"
 #include "PinnedArray.h"
-#include "WorkerCUDA.h"
-#include "WorkerFFTW.h"
+#include "SpectrogramCalculatorCUDA.h"
+#include "SpectrogramCalculatorFFTW.h"
 #include "Timer.h"
 
 const int REPEATS = 10;

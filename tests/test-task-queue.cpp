@@ -32,10 +32,12 @@ void test_put_twice() {
     }
 
     task_queue.put(0);
+    task_queue.wait_for_tasks();
     for (int i=0; i<ITEM_COUNT; ++i) {
         ASSERT_EQUALS(i == 0, processed[i]);
     }
     task_queue.put(1);
+    task_queue.wait_for_tasks();
     for (int i=0; i<ITEM_COUNT; ++i) {
         ASSERT_EQUALS(i <= 1, processed[i]);
     }
@@ -61,6 +63,7 @@ void test_put_list() {
         numbers.push_back(i);
     }
     task_queue.put(std::move(numbers));
+    task_queue.wait_for_tasks();
     for (int i=0; i<ITEM_COUNT; ++i) {
         ASSERT_EQUALS(i < ITEM_COUNT/2, processed[i]);
     }
@@ -70,6 +73,7 @@ void test_put_list() {
         numbers.push_back(i);
     }
     task_queue.put(std::move(numbers));
+    task_queue.wait_for_tasks();
     for (int i=0; i<ITEM_COUNT; ++i) {
         ASSERT_EQUALS(1, processed[i]);
     }

@@ -16,7 +16,7 @@ public:
     /**
      * Create a new instance representing a triangular envelope.
      */
-    explicit TriangularFamily();
+    explicit TriangularFamily() = default;
 
     double max_arg() const final;
 
@@ -39,6 +39,10 @@ public:
     double time_integral(double x) const final;
 
     double inv_time_integral(double value) const final;
+
+    double optimality_factor_e2(double epsilon2) const final;
+
+    double optimality_factor_sf(double scale_frequency) const final;
 };
 
 #endif //EMPI_TRIANGULAR_FAMILY_H

@@ -5,9 +5,6 @@
  **********************************************************/
 #include <algorithm>
 #include "Block.h"
-#include "BlockHelper.h"
-#include "PinnedArray.h"
-#include "SpectrumCalculator.h"
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -37,8 +34,11 @@ Block::Block(PinnedArray2D<real> data_, std::shared_ptr<Family> family_, double 
     const int how_many = (how_many_candidate <= 0 ? 0 : as_positive_int(how_many_candidate));
 
     maxima = PinnedArray1D<ExtractedMaximum>(how_many);
-    this->booster = Array1D<double>(how_many);
-    this->booster.fill(booster);
+    this->booster = Array1D<double>(output_bins);
+    for (int k=0; k<output_bins; ++k) {
+        const double scale_frequency = scale * std::min(k, window_length-k) / window_length;
+        this->booster[k] = booster / family->optimality_factor_sf(scale_frequency);
+    }
 
     total_request.data = data.get();
     total_request.channel_length = data.length();

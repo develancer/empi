@@ -10,7 +10,7 @@
 
 BlockDictionary::BlockDictionary(const BlockDictionaryStructure& structure, const PinnedArray2D<double>& data,
                                  Extractor extractor, SpectrumCalculator &calculator) {
-    const double booster = 1.0 / (1.0 - 1.5 * structure.energy_error);
+    const double booster = 1.0 / structure.family->optimality_factor_e2(structure.energy_error);
 
     for (const auto& pair : structure.scales_and_transform_sizes) {
         const double scale = pair.first;
