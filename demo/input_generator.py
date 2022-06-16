@@ -1,6 +1,5 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 import numpy
-import pylab
 import sys
 
 sampling_frequency = 512. # Hz

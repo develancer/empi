@@ -19,10 +19,9 @@ multi-channel signal with one Gabor atom per channel, and can be
 re-generated with a Python script «input_generator.py». The script accepts
 an optional "--plot" command line parameter to plot the generated signal.
 
-2. Decomposition results «input_smp.db» can be computed by running empi
-with the given configuration file «input.cfg» as
+2. Decomposition results «input_smp.db» can be computed by running empi as
 
-  path/to/empi input.cfg
+  path/to/empi -c5 -f512 -i10 -o local --gabor input.bin input_smp.db
 
 Thanks to the attached «input.xml» specification, the input signal itself
 may be displayed and manipulated in Svarog as well.
