@@ -58,6 +58,7 @@ else()
 endif()
 
 add_executable(empi src/special/empi.cpp)
+install(TARGETS empi)
 target_link_libraries(empi empi-cpu fftw3)
 if(WITH_CUDA)
     target_link_libraries(empi empi-gpu cufft_static culibos)
