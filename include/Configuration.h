@@ -117,6 +117,11 @@ struct Configuration {
     std::string residual_log_dir;
 
     /**
+     * Path to create a dictionary structure XML file (optional).
+     */
+    std::string dictionary_output;
+
+    /**
      * Maximum number of iterations to perform.
      * The iterating procedure will stop if either
      * a) max_iterations are reached, or

@@ -7,15 +7,16 @@
 #define EMPI_BLOCK_DICTIONARY_STRUCTURE_H
 
 #include <memory>
-#include <map>
+#include <list>
 #include <set>
+#include "BlockStructure.h"
 #include "Family.h"
 
 struct BlockDictionaryStructure {
 
     const std::shared_ptr<Family> family;
     const double energy_error, scale_min, scale_max, frequency_max, log_scale_step, dt_scale, df_scale;
-    const std::map<double,int> scales_and_transform_sizes;
+    const std::list<BlockStructure> block_structures;
 
     /**
      * @param family Family object describing properties of the envelope function

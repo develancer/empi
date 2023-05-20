@@ -83,6 +83,7 @@ bool Configuration::parse(int argc, char **argv, int &error_code) {
             ->check(check_positive_number)->capture_default_str();
 #ifdef HAVE_CUDA
     std::string gpu_specs;
+    app.add_option("--dictionary-output", dictionary_output, "Path to create a dictionary structure XML file (default: none)");
     app.add_option("--gpu-id", gpu_specs, "Comma-separated ID list of GPU device(s) to use (default: none)");
 #endif
     app.add_flag("--input64", input64, "Read input data as double-precision (64-bit) floating point values (default: read as 32-bit values)");

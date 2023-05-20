@@ -15,6 +15,11 @@
 class File : public std::shared_ptr<FILE> {
 public:
     /**
+     * Create a null file handle.
+     */
+    File() = default;
+
+    /**
      * Create a new file handle.
      * If fopen() call fails, throw an exception.
      *

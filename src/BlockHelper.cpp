@@ -44,13 +44,13 @@ PinnedArray1D<Corrector> BlockHelper::generate_correctors(const Array1D<double>&
     return correctors;
 }
 
-std::map<double,int> BlockHelper::compute_scales_and_transform_sizes(const Family* family, double scale_min, double scale_max, double log_scale_step, double df_scale) {
+std::list<BlockStructure> BlockHelper::compute_block_structures(const Family* family, double scale_min, double scale_max, double log_scale_step, double df_scale, double dt_scale) {
     const double log_scale_min = std::log(scale_min);
     const double log_scale_max = std::log(scale_max);
     int il_max = (scale_min == scale_max) ? 0 :
             Types::ceil<int>((log_scale_max - log_scale_min) / log_scale_step); // TODO a może floor + 1 ?
 
-    std::map<double,int> result;
+    std::list<BlockStructure> result;
     for (int il = 0; il <= il_max; ++il) {
         const double scale = std::exp(log_scale_min + (log_scale_max - log_scale_min) * il / il_max);
         // TODO center position does not have to be 0.0 in case of sub-sample spacing
@@ -60,7 +60,11 @@ std::map<double,int> BlockHelper::compute_scales_and_transform_sizes(const Famil
         }
         const double min_transform_size_as_float = std::max<double>(scale / df_scale, static_cast<double>(envelope_length));
         int transform_size = round_transform_size(min_transform_size_as_float);
-        result.emplace(std::make_pair(scale, transform_size));
+        int input_shift = Types::floor<int>(dt_scale * scale + 1.0e-12);
+        if (input_shift < 1) {
+            throw std::runtime_error("requested minimum atom scale is too small");
+        }
+        result.push_back({scale, static_cast<int>(envelope_length), transform_size, input_shift});
     }
     return result;
 }

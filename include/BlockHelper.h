@@ -10,6 +10,7 @@
 #include "Array.h"
 #include "Block.h"
 #include "BlockAtomBase.h"
+#include "BlockStructure.h"
 #include "Corrector.h"
 #include "Family.h"
 #include "PinnedArray.h"
@@ -25,7 +26,7 @@ public:
 
     static PinnedArray1D<Corrector> generate_correctors(const Array1D<double>& envelope, int window_length, int output_bins, SpectrumCalculator& calculator);
 
-    static std::map<double,int> compute_scales_and_transform_sizes(const Family* family, double scale_min, double scale_max, double log_scale_step, double df_scale);
+    static std::list<BlockStructure> compute_block_structures(const Family* family, double scale_min, double scale_max, double log_scale_step, double df_scale, double dt_scale);
 
     static int round_transform_size(double min_transform_size_as_float);
 };

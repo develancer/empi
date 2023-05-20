@@ -12,26 +12,18 @@ BlockDictionary::BlockDictionary(const BlockDictionaryStructure& structure, cons
                                  Extractor extractor, SpectrumCalculator &calculator) {
     const double booster = 1.0 / structure.family->optimality_factor_e2(structure.energy_error);
 
-    for (const auto& pair : structure.scales_and_transform_sizes) {
-        const double scale = pair.first;
-        int transform_size = pair.second;
-
-        int input_shift = Types::floor<int>(structure.dt_scale * scale + 1.0e-12);
-        if (input_shift < 1) {
-            throw std::runtime_error("requested minimum atom scale is too small");
-        }
-
-        int output_bins = Types::floor<int>(transform_size * structure.frequency_max) + 1;
+    for (const auto& bs : structure.block_structures) {
+        int output_bins = Types::floor<int>(bs.transform_size * structure.frequency_max) + 1;
         auto converter = std::make_shared<BlockAtomParamsConverterBounded>(
-                1.0 / transform_size,
-                static_cast<double>(input_shift),
+                1.0 / bs.transform_size,
+                static_cast<double>(bs.input_shift),
                 structure.log_scale_step,
                 structure.frequency_max,
                 structure.scale_min,
                 structure.scale_max
         );
 
-        blocks.push_back(BlockHelper::create_block(data, structure.family, scale, converter, booster, transform_size, output_bins, input_shift, extractor, calculator, true));
+        blocks.push_back(BlockHelper::create_block(data, structure.family, bs.scale, converter, booster, bs.transform_size, output_bins, bs.input_shift, extractor, calculator, true));
     }
 }
 

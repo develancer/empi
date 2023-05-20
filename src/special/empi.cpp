@@ -177,10 +177,55 @@ static int empi(const Configuration &configuration) {
         structures.emplace_back(e.family, energyError, scale_min, scale_max, e.freq_max);
     }
 
-    std::set<int> transform_sizes;
-    for (const auto &structure : structures) {
-        transform_sizes.merge(structure.get_transform_sizes());
+    FILE* dictionary_xml_handle = nullptr;
+    if (!configuration.dictionary_output.empty()) {
+        dictionary_xml_handle = fopen(configuration.dictionary_output.c_str(), "w");
+        if (!dictionary_xml_handle) {
+            throw std::runtime_error("Could not create XML file with dictionary structure");
+        }
+        fputs("<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>\n"
+              "<dict>\n"
+              "<libVersion>0.2</libVersion>\n",
+              dictionary_xml_handle);
     }
+
+    std::set<int> transform_sizes;
+    for (const auto &structure: structures) {
+        transform_sizes.merge(structure.get_transform_sizes());
+        if (dictionary_xml_handle) {
+
+            std::string lower_case_name = structure.family->name();
+            std::string upper_case_name = lower_case_name;
+            for (char &c: upper_case_name) {
+                c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+            }
+            fprintf(dictionary_xml_handle, "<blockproperties name=\"%s-WINDOW\">\n", upper_case_name.c_str());
+            fprintf(dictionary_xml_handle, "<param name=\"windowtype\" value=\"%s\"/>\n", lower_case_name.c_str());
+            fprintf(dictionary_xml_handle, "</blockproperties>\n");
+            if (lower_case_name == "gauss") {
+                lower_case_name = "gabor";
+            }
+            for (const auto &bs: structure.block_structures) {
+                const double scale_ratio = bs.scale / (bs.envelope_length + 1);
+                const double opt = 0.5 * M_1_PI * scale_ratio * scale_ratio;
+                fprintf(dictionary_xml_handle, "<block uses=\"%s-WINDOW\">\n", upper_case_name.c_str());
+                fprintf(dictionary_xml_handle, "<param name=\"type\" value=\"%s\"/>\n", lower_case_name.c_str());
+                fprintf(dictionary_xml_handle, "<param name=\"windowLen\" value=\"%d\"/>\n", bs.envelope_length);
+                fprintf(dictionary_xml_handle, "<param name=\"windowShift\" value=\"%d\"/>\n", bs.input_shift);
+                fprintf(dictionary_xml_handle, "<param name=\"windowopt\" value=\"%lf\"/>\n", opt);
+                fprintf(dictionary_xml_handle, "<param name=\"fftSize\" value=\"%d\"/>\n", bs.transform_size);
+                fprintf(dictionary_xml_handle, "</block>\n");
+            }
+        }
+    }
+
+    if (dictionary_xml_handle) {
+        fputs("</dict>\n",
+              dictionary_xml_handle);
+        fflush(dictionary_xml_handle);
+        fclose(dictionary_xml_handle);
+    }
+
     std::unique_ptr<SpectrogramCalculatorFFTW> primary_calculator;
     if (!transform_sizes.empty()) {
         primary_calculator = std::make_unique<SpectrogramCalculatorFFTW>(reader->get_epoch_channel_count(), transform_sizes);

@@ -13,14 +13,14 @@ BlockDictionaryStructure::BlockDictionaryStructure(std::shared_ptr<Family> famil
     log_scale_step(family->inv_scale_integral(1 - energy_error)),
     dt_scale(family->inv_time_integral(1 - energy_error)),
     df_scale(family->inv_freq_integral(1 - energy_error)),
-    scales_and_transform_sizes(BlockHelper::compute_scales_and_transform_sizes(family.get(), scale_min, scale_max, log_scale_step, df_scale))
+    block_structures(BlockHelper::compute_block_structures(family.get(), scale_min, scale_max, log_scale_step, df_scale, dt_scale))
 { }
 
 [[nodiscard]] std::set<int> BlockDictionaryStructure::get_transform_sizes() const
 {
     std::set<int> transform_sizes;
-    for (const auto& pair : scales_and_transform_sizes) {
-        transform_sizes.insert(transform_sizes.end(), pair.second);
+    for (const auto& bs : block_structures) {
+        transform_sizes.insert(transform_sizes.end(), bs.transform_size);
     }
     return transform_sizes;
 }
