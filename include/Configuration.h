@@ -107,6 +107,12 @@ struct Configuration {
     bool include_delta_atoms = false;
 
     /**
+     * If set to true, part of any atom can exceed the time domain of the signal.
+     * Otherwise (default), zero-valued samples are assumed on both ends.
+     */
+    bool full_atoms_in_signal = false;
+
+    /**
      * Path for the input signal file.
      */
     std::string input_file_path;

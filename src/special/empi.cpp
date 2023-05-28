@@ -171,7 +171,12 @@ static int empi(const Configuration &configuration) {
         if (scale_max == 0.0) {
             // defaults to the epoch length
             scale_max = static_cast<double>(reader->get_epoch_sample_count());
-            // TODO if the entire envelope needs to fit in epoch, divide by family->max_arg()-family->min_arg()
+        }
+        if (configuration.full_atoms_in_signal) {
+            // if --full-atoms-in-signal is set, further restrict the max scale
+            double scale_max_in_signal = static_cast<double>(reader->get_epoch_sample_count() - 1)
+                                         / (e.family->max_arg() - e.family->min_arg());
+            scale_max = std::min(scale_max, scale_max_in_signal);
         }
 
         structures.emplace_back(e.family, energyError, scale_min, scale_max, e.freq_max);

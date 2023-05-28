@@ -79,6 +79,7 @@ bool Configuration::parse(int argc, char **argv, int &error_code) {
     app.add_option("--cpu-workers", cpu_workers, "Number of independent CPU workers to run")
             ->check(check_positive_int)->capture_default_str();
     app.add_flag("--delta", include_delta_atoms, "Include delta-type atoms");
+    app.add_flag("--full-atoms-in-signal", full_atoms_in_signal, "Prohibit atoms from exceeding the time range of the signal");
     app.add_option("--energy-error", energy_error, "Epsilon-squared parameter corresponding to the dictionary size")
             ->check(check_positive_number)->capture_default_str();
 #ifdef HAVE_CUDA

@@ -9,7 +9,7 @@
 //////////////////////////////////////////////////////////////////////////////
 
 BlockDictionary::BlockDictionary(const BlockDictionaryStructure& structure, const PinnedArray2D<double>& data,
-                                 Extractor extractor, SpectrumCalculator &calculator) {
+                                 Extractor extractor, SpectrumCalculator &calculator, bool allow_overstep) {
     const double booster = 1.0 / structure.family->optimality_factor_e2(structure.energy_error);
 
     for (const auto& bs : structure.block_structures) {
@@ -23,7 +23,7 @@ BlockDictionary::BlockDictionary(const BlockDictionaryStructure& structure, cons
                 structure.scale_max
         );
 
-        blocks.push_back(BlockHelper::create_block(data, structure.family, bs.scale, converter, booster, bs.transform_size, output_bins, bs.input_shift, extractor, calculator, true));
+        blocks.push_back(BlockHelper::create_block(data, structure.family, bs.scale, converter, booster, bs.transform_size, output_bins, bs.input_shift, extractor, calculator, allow_overstep));
     }
 }
 

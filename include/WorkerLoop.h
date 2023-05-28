@@ -60,9 +60,10 @@ public:
         if (configuration.include_delta_atoms) {
             computer.add_dictionary(std::make_unique<DeltaDictionary>(data));
         }
+        bool allow_overstep = !configuration.full_atoms_in_signal;
         for (const auto &structure: structures) {
             computer.add_dictionary(
-                    std::make_unique<BlockDictionary>(structure, data, configuration.extractor, *primary_calculator));
+                    std::make_unique<BlockDictionary>(structure, data, configuration.extractor, *primary_calculator, allow_overstep));
         }
 
         for (unsigned i = 1; i < configuration.cpu_threads; ++i) {

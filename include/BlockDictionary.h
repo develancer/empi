@@ -39,7 +39,7 @@ public:
      * @param calculator needed for calculating corrections to account for normalization issues
      */
     BlockDictionary(const BlockDictionaryStructure& structure, const PinnedArray2D<double>& data,
-                    Extractor extractor, SpectrumCalculator &calculator);
+                    Extractor extractor, SpectrumCalculator &calculator, bool allow_overstep);
 
     explicit BlockDictionary(Block&& block);
 
