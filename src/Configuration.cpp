@@ -50,7 +50,7 @@ bool Configuration::parse(int argc, char **argv, int &error_code) {
 
     double gauss_half_width = GaussianFamily::DEFAULT_MIN_MAX;
     std::list<EnvelopeTuple> envelope_tuples;
-    envelope_tuples.push_back({"gauss", "gabor", "Gaussian", [gauss_half_width]() {
+    envelope_tuples.push_back({"gauss", "gabor", "Gaussian", [&gauss_half_width]() {
         return std::make_shared<GaussianFamily>(gauss_half_width);
     }});
 
