@@ -128,7 +128,7 @@ BlockAtom Block::get_atom_from_index(int index) const {
     BlockAtom result = BlockAtom(
             data,
             extracted.energy,
-            extracted.energy * booster[index],
+            extracted.energy * booster[extracted.bin_index],
             family,
             static_cast<double>(extracted.bin_index) / static_cast<double>(total_request.window_length),
             static_cast<double>( center_position ),
