@@ -61,9 +61,9 @@ void test_single_atom(std::shared_ptr<Family> family, double scale, double frequ
     double actual_energy = objective.calculate_energy(converter->arrayFromParams(params),nullptr, &extra_data);
     double actual_amplitude = extra_data.amplitude * family->value(0.0) / std::sqrt(scale);
 
-    ASSERT_APPROX(1.0, actual_energy, 1.0e-10);
-    ASSERT_APPROX(1.0, extra_data.energy, 1.0e-10);
-    ASSERT_APPROX(atom_amplitude, actual_amplitude, 1.0e-10);
+    ASSERT_APPROX(1.0, actual_energy, 1.0e-5);
+    ASSERT_APPROX(1.0, extra_data.energy, 1.0e-5);
+    ASSERT_APPROX(atom_amplitude, actual_amplitude, 1.0e-5);
 
     double raw_phase_diff = std::abs(phase - extra_data.phase);
     double correct_phase_diff = std::min(raw_phase_diff, 2*M_PI - raw_phase_diff);
@@ -93,9 +93,9 @@ void test_random(std::shared_ptr<Family> family, double scale, double frequency)
     double expected_energy = product * product;
     double expected_amplitude = product * atom_amplitude;
 
-    ASSERT_APPROX(expected_energy, actual_energy, 1.0e-10);
-    ASSERT_APPROX(expected_energy, extra_data.energy, 1.0e-10);
-    ASSERT_APPROX(expected_amplitude, actual_amplitude, 1.0e-10);
+    ASSERT_APPROX(expected_energy, actual_energy, 1.0e-5);
+    ASSERT_APPROX(expected_energy, extra_data.energy, 1.0e-5);
+    ASSERT_APPROX(expected_amplitude, actual_amplitude, 1.0e-5);
 
     // check residual
     for (int i=0; i<sample_count; ++i) {

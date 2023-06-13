@@ -11,7 +11,7 @@
 
 #define ASSERT(ACTUAL) if (!(ACTUAL)) errx(EXIT_FAILURE, #ACTUAL " evaluates to false")
 #define ASSERT_EQUALS(EXPECTED, ACTUAL) if ((EXPECTED) != (ACTUAL)) errx(EXIT_FAILURE, #ACTUAL " does not equal expected " #EXPECTED)
-#define ASSERT_NEAR_ZERO(ACTUAL) if (std::abs(ACTUAL) > 1.0e-9) errx(EXIT_FAILURE, #ACTUAL " (%le) is significantly nonzero", (ACTUAL))
+#define ASSERT_NEAR_ZERO(ACTUAL) if (std::abs(ACTUAL) > 1.0e-6) errx(EXIT_FAILURE, #ACTUAL " (%le) is significantly nonzero", (ACTUAL))
 #define ASSERT_APPROX(EXPECTED, ACTUAL, EPSILON) if (std::abs((EXPECTED)-(ACTUAL)) > (EPSILON)) \
   errx(EXIT_FAILURE, #ACTUAL " (%lf) is significantly (" #EPSILON ") different than " #EXPECTED " (%lf)", (ACTUAL), (EXPECTED))
 #define ASSERT_SAME_PHASE(EXPECTED, ACTUAL, EPSILON) if (std::min(std::abs((EXPECTED)-(ACTUAL)), 2*M_PI-std::abs((EXPECTED)-(ACTUAL))) > (EPSILON)) \

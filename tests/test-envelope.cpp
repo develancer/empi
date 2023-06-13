@@ -73,7 +73,7 @@ int main() {
     test_integrals(gauss);
     test_integrals(triangle);
     test_integrals(triangle, 1.0);
-    test_generate(gauss, 601, 100);
+    test_generate(gauss, 301, 250);
     test_generate(triangle, 179, 311);
 
     puts("OK");

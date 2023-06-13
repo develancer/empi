@@ -15,7 +15,7 @@ class GaussianFamily : public FamilyTemplate<GaussianFamily> {
     const double min_max;
 
 public:
-    static inline const double DEFAULT_MIN_MAX = 3.0;
+    static inline const double DEFAULT_MIN_MAX = 1.5;
 
     /**
      * Create a new instance representing a Gaussian envelope.
