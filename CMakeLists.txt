@@ -90,3 +90,5 @@ target_link_libraries(test-dictionary empi-fake-gpu)
 target_link_libraries(test-fftw fftw3)
 
 target_link_libraries(test-measure empi-fake-gpu fftw3)
+
+target_link_libraries(test-subsample empi-fake-gpu fftw3)

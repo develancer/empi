@@ -41,7 +41,7 @@ int main() {
 
     request = block.buildRequest(64, 300);
     ASSERT_EQUALS(-64, request.input_offset); // half of envelope
-    ASSERT_EQUALS(10, request.how_many); // still the same
+    ASSERT_EQUALS(10, request.how_many); // still the same, the last envelope is [270..334]
 
     request = block.buildRequest(65, 300);
     ASSERT_EQUALS(-34, request.input_offset); // just got outside the first envelope [-64..64]

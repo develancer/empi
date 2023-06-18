@@ -28,6 +28,7 @@ class Block : public BlockInterface {
     PinnedArray2D<real> data;
     std::shared_ptr<Family> family;
     double scale;
+    double envelope_center_offset;
     PinnedArray1D<double> envelope;
     PinnedArray1D<Corrector> correctors;
     std::shared_ptr<BlockAtomParamsConverter> converter;
@@ -57,7 +58,7 @@ public:
      */
     Block(PinnedArray2D<double> data, std::shared_ptr<Family> family, double scale, PinnedArray1D<double> envelope,
           PinnedArray1D<Corrector> correctors, std::shared_ptr<BlockAtomParamsConverter> converter, double booster,
-          int window_length, int input_shift, Extractor extractor, bool allow_overstep = true);
+          int window_length, int input_shift, double envelope_center_offset, Extractor extractor, bool allow_overstep = true);
 
     /**
      * Create a SpectrogramRequest that can be used to recompute the entire block.

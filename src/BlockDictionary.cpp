@@ -6,6 +6,8 @@
 #include "BlockDictionary.h"
 #include "BlockHelper.h"
 
+static const int MAX_BLOCKS_PER_SCALE = 1000; // sanity check, quite arbitrary
+
 //////////////////////////////////////////////////////////////////////////////
 
 BlockDictionary::BlockDictionary(const BlockDictionaryStructure& structure, const PinnedArray2D<double>& data,
@@ -23,7 +25,26 @@ BlockDictionary::BlockDictionary(const BlockDictionaryStructure& structure, cons
                 structure.scale_max
         );
 
-        blocks.push_back(BlockHelper::create_block(data, structure.family, bs.scale, converter, booster, bs.transform_size, output_bins, bs.input_shift, extractor, calculator, allow_overstep));
+        if (bs.input_shift < 1) {
+            double number_of_blocks_as_float = 1.0 / bs.input_shift;
+            if (number_of_blocks_as_float > MAX_BLOCKS_PER_SCALE) {
+                throw std::runtime_error("requested minimum atom scale is too small");
+            }
+            int number_of_blocks = Types::round<int>(number_of_blocks_as_float);
+            for (int i=0; i<number_of_blocks; ++i) {
+                double subsample_offset = static_cast<double>(i) / static_cast<double>(number_of_blocks);
+                blocks.push_back(
+                        BlockHelper::create_block(data, structure.family, bs.scale, converter, booster, bs.transform_size,
+                                output_bins, 1, subsample_offset, extractor, calculator, allow_overstep)
+                );
+            }
+        } else {
+            int input_shift = Types::round<int>(bs.input_shift);
+            blocks.push_back(
+                BlockHelper::create_block(data, structure.family, bs.scale, converter, booster, bs.transform_size,
+                    output_bins, input_shift, 0.0, extractor, calculator, allow_overstep)
+            );
+        }
     }
 }
 

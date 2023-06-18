@@ -33,7 +33,7 @@ int main() {
     auto family = std::make_shared<GaussianFamily>();
 
     auto converter = std::make_shared<BlockAtomParamsConverter>();
-    BlockDictionary dictionary(BlockHelper::create_block(data, family, 2.0, converter, NAN, 16, 4, 1, extractorVariablePhase, calculator));
+    BlockDictionary dictionary(BlockHelper::create_block(data, family, 2.0, converter, NAN, 16, 4, 1, 0.0, extractorVariablePhase, calculator));
 
     std::list<SpectrogramRequest> requests;
     dictionary.fetch_requests({0, 11}, requests);

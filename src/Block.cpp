@@ -10,10 +10,11 @@
 
 Block::Block(PinnedArray2D<real> data_, std::shared_ptr<Family> family_, double scale, PinnedArray1D<double> envelope_,
              PinnedArray1D<Corrector> correctors_, std::shared_ptr<BlockAtomParamsConverter> converter_, double booster,
-             int window_length, int input_shift, Extractor extractor, bool allow_overstep)
+             int window_length, int input_shift, double envelope_center_offset, Extractor extractor, bool allow_overstep)
         : data(std::move(data_)),
           family(std::move(family_)),
           scale(scale),
+          envelope_center_offset(envelope_center_offset),
           envelope(std::move(envelope_)),
           correctors(std::move(correctors_)),
           converter(std::move(converter_)),
@@ -43,7 +44,7 @@ Block::Block(PinnedArray2D<real> data_, std::shared_ptr<Family> family_, double 
     total_request.data = data.get();
     total_request.channel_length = data.length();
     total_request.channel_count = data.height();
-    total_request.input_offset = allow_overstep ? -envelope_length / 2 : 0;
+    total_request.input_offset = allow_overstep ? -envelope_center_offset : 0;
     total_request.input_shift = input_shift;
     total_request.how_many = how_many;
     total_request.envelope = envelope.get();
@@ -122,8 +123,8 @@ std::list<BlockAtom> Block::get_candidate_matches(double energy_to_exceed) const
 
 BlockAtom Block::get_atom_from_index(int index) const {
     ExtractedMaximum extracted = maxima[index];
-    index_t center_position =
-            total_request.input_offset + static_cast<index_t>(index) * static_cast<index_t>(total_request.input_shift) + envelope.length() / 2;
+    double center_position =
+            total_request.input_offset + static_cast<index_t>(index) * static_cast<index_t>(total_request.input_shift) + envelope_center_offset;
 
     BlockAtom result = BlockAtom(
             data,
@@ -131,7 +132,7 @@ BlockAtom Block::get_atom_from_index(int index) const {
             extracted.energy * booster[extracted.bin_index],
             family,
             static_cast<double>(extracted.bin_index) / static_cast<double>(total_request.window_length),
-            static_cast<double>( center_position ),
+            center_position,
             scale,
             total_request.extractor,
             converter

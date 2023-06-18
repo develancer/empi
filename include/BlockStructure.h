@@ -10,7 +10,7 @@ struct BlockStructure {
 	double scale;
 	int envelope_length;
 	int transform_size;
-	int input_shift;
+	double input_shift;
 };
 
 #endif //EMPI_BLOCK_STRUCTURE_H

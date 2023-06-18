@@ -216,7 +216,7 @@ static int empi(const Configuration &configuration) {
                 fprintf(dictionary_xml_handle, "<block uses=\"%s-WINDOW\">\n", upper_case_name.c_str());
                 fprintf(dictionary_xml_handle, "<param name=\"type\" value=\"%s\"/>\n", lower_case_name.c_str());
                 fprintf(dictionary_xml_handle, "<param name=\"windowLen\" value=\"%d\"/>\n", bs.envelope_length);
-                fprintf(dictionary_xml_handle, "<param name=\"windowShift\" value=\"%d\"/>\n", bs.input_shift);
+                fprintf(dictionary_xml_handle, "<param name=\"windowShift\" value=\"%g\"/>\n", bs.input_shift);
                 fprintf(dictionary_xml_handle, "<param name=\"windowopt\" value=\"%lf\"/>\n", opt);
                 fprintf(dictionary_xml_handle, "<param name=\"fftSize\" value=\"%d\"/>\n", bs.transform_size);
                 fprintf(dictionary_xml_handle, "</block>\n");

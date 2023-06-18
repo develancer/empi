@@ -40,7 +40,7 @@ void test(SpectrogramCalculatorFFTW &calculator, double frequency, int position,
     }
     auto converter = std::make_shared<BlockAtomParamsConverter>();
     auto correctors = BlockHelper::generate_correctors(envelope, 256, 129, calculator);
-    BlockDictionary dictionary(Block(data, family, scale, envelope, correctors, converter, NAN, 256, 1, extractorVariablePhase));
+    BlockDictionary dictionary(Block(data, family, scale, envelope, correctors, converter, NAN, 256, 1, envelope_length/2, extractorVariablePhase));
 
     std::list<SpectrogramRequest> requests;
     dictionary.fetch_requests({0, N}, requests);
