@@ -78,7 +78,7 @@ SpectrogramRequest Block::buildRequest(index_t first_sample_index, index_t end_s
                                                                                          (first_sample_index - samples_covered_by_first_envelope) /
                                                                                          static_cast<index_t>(total_request.input_shift);
     index_t end_index = 1 +
-                        (end_sample_index + static_cast<index_t>(total_request.envelope_length) / 2) /
+                        (end_sample_index - total_request.input_offset - 1) /
                         static_cast<index_t>(total_request.input_shift);
     if (end_index > static_cast<index_t>(total_request.how_many)) {
         end_index = total_request.how_many;

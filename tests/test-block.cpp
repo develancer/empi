@@ -23,7 +23,7 @@ int main() {
 
     auto converter = std::make_shared<BlockAtomParamsConverter>();
     auto family = std::make_shared<GaussianFamily>();
-    Block block(data, family, NAN, envelope, correctors, converter, NAN, 256, 30, extractorForTest);
+    Block block(data, family, NAN, envelope, correctors, converter, NAN, 256, 30, 64.0, extractorForTest);
 
     SpectrogramRequest request = block.buildRequest(0, 300);
     ASSERT_EQUALS(data.get(), request.data);
@@ -47,11 +47,11 @@ int main() {
     ASSERT_EQUALS(-34, request.input_offset); // just got outside the first envelope [-64..64]
     ASSERT_EQUALS(9, request.how_many); // one less
 
-    request = block.buildRequest(65, 206);
+    request = block.buildRequest(65, 207);
     ASSERT_EQUALS(-34, request.input_offset);
     ASSERT_EQUALS(9, request.how_many); // still the same
 
-    request = block.buildRequest(65, 205);
+    request = block.buildRequest(65, 206);
     ASSERT_EQUALS(-34, request.input_offset);
     ASSERT_EQUALS(8, request.how_many); // got outside the last envelope [206..334]
 
