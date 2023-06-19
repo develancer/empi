@@ -70,6 +70,11 @@ void BlockHelper::add_block_structures_to_list(std::list<BlockStructure>& result
     const double min_transform_size_as_float = std::max<double>(scale / df_scale, static_cast<double>(envelope_length));
     int transform_size = round_transform_size(min_transform_size_as_float);
     double input_shift = dt_scale * scale;
+    if (input_shift >= 1) {
+        input_shift = std::floor(input_shift + 1.0e-12);
+    } else {
+        input_shift = 1.0 / std::ceil(1.0 / input_shift - 1.0e-12);
+    }
     result.push_back({scale, static_cast<int>(envelope_length), transform_size, input_shift});
 }
 
