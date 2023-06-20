@@ -48,10 +48,10 @@ ExtendedAtomPointer BlockAtom::extend(bool allow_optimization) {
                 Configuration::optimization_max_iterations
         );
         if (result.ifault) {
-            Logger::info("Parameter optimization could not converge. Unless it happens very often, it should not affect the decomposition. Tweaking --opt-max-iter and --opt-target options might help.");
-        } else {
-            array = result.xmin;
+            ++failed_optimization_count;
         }
+        ++total_optimization_count;
+        array = result.xmin;
     }
 
     double norm;

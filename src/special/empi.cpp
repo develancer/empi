@@ -249,6 +249,14 @@ static int empi(const Configuration &configuration) {
         thread.join();
     }
 
+    double failed_optimization_percent = BlockAtom::get_failed_optimization_percent();
+    if (failed_optimization_percent >= 0.1) {
+        Logger::info(
+            "%.1f%% of atom optimizations could not fully converge. Unless this number is significant, it should not affect the decomposition. Tweaking --opt-max-iter and --opt-target options might help.",
+            failed_optimization_percent
+        );
+    }
+
     Logger::info("Decomposition finished successfully");
     return 0;
 }

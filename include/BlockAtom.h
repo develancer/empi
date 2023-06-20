@@ -6,6 +6,7 @@
 #ifndef EMPI_BLOCK_ATOM_H
 #define EMPI_BLOCK_ATOM_H
 
+#include <atomic>
 #include <cmath>
 #include <list>
 #include <map>
@@ -74,8 +75,16 @@ class BlockAtom : public BasicAtom {
 
     std::optional<BlockAtomCacheSlot> cache_slot;
 
+    static std::atomic<size_t> failed_optimization_count;
+    static std::atomic<size_t> total_optimization_count;
+
 public:
     const BlockAtomParams params;
+
+    static double get_failed_optimization_percent()
+    {
+        return 100.0 * failed_optimization_count / total_optimization_count;
+    }
 
     /**
      * Create a new basic atom for block dictionary.
