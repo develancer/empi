@@ -16,6 +16,9 @@
 
 //////////////////////////////////////////////////////////////////////////////
 
+std::atomic<size_t> BlockAtom::failed_optimization_count;
+std::atomic<size_t> BlockAtom::total_optimization_count;
+
 BlockAtom::BlockAtom(Array2D<double> data, double energy, double energy_upper_bound, std::shared_ptr<Family> family_,
                      double frequency, double position, double scale,
                      Extractor extractor, std::shared_ptr<BlockAtomParamsConverter> converter_)
