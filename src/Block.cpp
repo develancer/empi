@@ -114,7 +114,7 @@ BlockAtom Block::get_best_match() const {
 std::list<BlockAtom> Block::get_candidate_matches(double energy_to_exceed) const {
     std::list<BlockAtom> matches;
     for (int index = 0; index < total_request.how_many; ++index) {
-        if (index != best_index && maxima[index].energy * booster[maxima[index].bin_index] > energy_to_exceed) {
+        if (maxima[index].energy * booster[maxima[index].bin_index] > energy_to_exceed) {
             matches.push_back(get_atom_from_index(index));
         }
     }
