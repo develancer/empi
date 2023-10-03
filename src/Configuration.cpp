@@ -46,7 +46,8 @@ double Configuration::optimization_target = 1.0e-5;
 Configuration::Configuration() : cpu_threads(std::thread::hardware_concurrency()) {}
 
 bool Configuration::parse(int argc, char **argv, int &error_code) {
-    CLI::App app{"Enhanced Matching Pursuit Implementation (empi)", "empi"};
+    CLI::App app{"Enhanced Matching Pursuit Implementation (empi) " APP_VERSION, "empi"};
+    app.set_version_flag("--version", APP_VERSION, "Print version and exit");
 
     double gauss_half_width = GaussianFamily::DEFAULT_MIN_MAX;
     std::list<EnvelopeTuple> envelope_tuples;

@@ -9,6 +9,30 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release")
 endif()
 
+find_package(Git)
+set(VERSION_FILE "${CMAKE_SOURCE_DIR}/version")
+
+if(EXISTS ${VERSION_FILE})
+    file(READ ${VERSION_FILE} FILE_VERSION)
+    string(STRIP ${FILE_VERSION} APP_VERSION)
+endif()
+if(NOT DEFINED APP_VERSION AND GIT_FOUND AND EXISTS "${PROJECT_SOURCE_DIR}/.git")
+    execute_process(
+        COMMAND ${GIT_EXECUTABLE} describe --tags
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        OUTPUT_VARIABLE GIT_TAG
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        RESULT_VARIABLE GIT_TAG_RESULT
+    )
+    if(GIT_TAG_RESULT EQUAL "0")
+        set(APP_VERSION ${GIT_TAG})
+    endif()
+endif()
+if(NOT DEFINED APP_VERSION)
+    set(APP_VERSION "1.?.?")
+endif()
+add_definitions("-DAPP_VERSION=\"${APP_VERSION}\"")
+
 include(CheckLanguage)
 check_language(CUDA)
 if(CMAKE_CUDA_COMPILER)

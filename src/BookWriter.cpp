@@ -61,6 +61,7 @@ void JsonBookWriter::write(Array2D<double> data, EpochIndex epoch, const std::ve
 
     if (!total_segments_written) {
         fputs("{\n", file.get());
+        fprintf(file.get(), "\"version\": \"%s\",\n", APP_VERSION);
         fprintf(file.get(), "\"channel_count\": %d,\n", C);
         fprintf(file.get(), "\"sampling_frequency_Hz\": %.8lg,\n", freq_sampling);
         fputs("\"segments\": [{\n", file.get());
@@ -137,6 +138,9 @@ void SQLiteBookWriter::write(Array2D<double> data, EpochIndex epoch, const std::
 
     execute("BEGIN TRANSACTION");
     if (!total_segments_written) {
+        insert_metadata("version", APP_VERSION, [](auto ...params) {
+            return sqlite3_bind_text(params..., -1, SQLITE_STATIC);
+        });
         insert_metadata("channel_count", C, sqlite3_bind_int);
         insert_metadata("sampling_frequency_Hz", freq_sampling, sqlite3_bind_double);
     }
