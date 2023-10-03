@@ -2,10 +2,7 @@ empi
 ====
 
 Enhanced Matching Pursuit Implementation (empi)  
-Author: Piotr Różański <piotr@develancer.pl> ⓒ 2015–2022
-
-**IMPORTANT**: Neither the official stable release of 1.0 is yet available, nor the
-current version of the _master_ codebase should be considered stable. Coming soon!
+Author: Piotr Różański <piotr@develancer.pl> ⓒ 2015–2023
 
 ## What is empi?
 
@@ -45,6 +42,8 @@ If the GPU devices are used in addition to CPU, each worker is started with one
 additional thread (corresponding to a separate CUDA stream) for each GPU device.
 The performance gain from enabling GPU devices, especially those with good
 double-precision floating point capabilities, is significant.
+
+_empi_ includes code from CLI11 and SQLite projects in the “vendor” subdirectory.
 
 ## How to get empi?
 
@@ -115,7 +114,7 @@ file and a path to the output file. It can be run with `--help` flag to list all
 possible flags and arguments:
 
 ```
-Enhanced Matching Pursuit Implementation (empi)
+Enhanced Matching Pursuit Implementation (empi) 1.0.0
 Usage: empi [OPTIONS] input_file output_file
 
 Positionals:
@@ -124,6 +123,7 @@ Positionals:
 
 Options:
   -h,--help                   Print this help message and exit
+  --version                   Print version and exit
   -c INT=1                    Number of channels in the input signal
   -f FLOAT                    Sampling frequency of the input signal in hertz (default: 1 Hz)
   -i INT                      Maximum number of iterations (default: no limit)
@@ -133,7 +133,9 @@ Options:
   --cpu-threads UINT=6        Number of CPU threads for each worker
   --cpu-workers UINT=1        Number of independent CPU workers to run
   --delta                     Include delta-type atoms
+  --full-atoms-in-signal      Prohibit atoms from exceeding the time range of the signal
   --energy-error FLOAT=0.05   Epsilon-squared parameter corresponding to the dictionary size
+  --dictionary-output TEXT    Path to create a dictionary structure XML file (default: none)
   --gpu-id TEXT               Comma-separated ID list of GPU device(s) to use (default: none)
   --input64                   Read input data as double-precision (64-bit) floating point values (default: read as 32-bit values)
   --mmp1 Excludes: --mmp3     Use multi-variate decomposition with constant phase across channels
@@ -148,7 +150,8 @@ Options:
   --gabor-freq-max FLOAT      Maximum frequency (in hertz) for Gaussian envelope (default: auto)
   --gabor-scale-min FLOAT     Minimum scale (in seconds) for Gaussian envelope (default: auto)
   --gabor-scale-max FLOAT     Maximum scale (in seconds) for Gaussian envelope (default: auto)
-  --gabor-half-width FLOAT=3  Half-width of the Gaussian envelope function
+  --gabor-half-width FLOAT=1.5
+                              Half-width of the Gaussian envelope function
 ```
 
 ### Command-line options
@@ -195,6 +198,7 @@ The decomposition will iterate until `-i` iterations or
   by decomposition. For example, specifying `-r 0.01` corresponds to
   performing the decomposition until the energy of the residual
   falls below 1% of the initial energy of the signal.
+* `--dictionary-output` value allows to generate an MPTK-style XML file with dictionary structure at a given path.
 * `--mmp1` specifies a constant-phase multi-variate decomposition,
   while `--mmp3` specifies a variable-phase variant. If neither is given, 
   each channel is processed separately. Detailed description of multi-variate
@@ -203,12 +207,31 @@ The decomposition will iterate until `-i` iterations or
 
 #### Structure of the dictionary
 
+* `-o` specifies how the local optimization will be used in a parameter space.
+`-o global` is default and results in a full simulation of a continuous dictionary.
+`-o local` enables local parameter optimization, but starting only from each iteration’s best match
+and therefore, does not guarantee choosing the globally best atom in each iteration. However, it could constitute
+a sensible tradeoff between precision and performance for real-world usages, as it can be much faster than `-o global`.
+Specifying `-o none` results in using only a discrete dictionary which structure will be specified by
+the `--energy-error` flag as described below. In this case, one should also request an `--energy-error` value
+smaller than the default of 0.05 (e.g. 0.01).
+
+* `--delta` enables the use of delta atoms in the dictionary.
+
 * `--energy-error` specifies the ε² parameter in optimal dictionary construction.
 Usually the values will be close to 0. Smaller value will allow for a more
 precise decomposition, but it will also engage more time and RAM.
 When simulating the continuous dictionary (`-o` option), this parameter does not affect
 the results, only time and memory consumption. The default value of 0.05 is approximately
-optimal for simulating continuous dictionaries.
+optimal for simulating continuous dictionaries, but for `-o none` one should request a smaller value (e.g. 0.01).
+
+* `--full-atoms-in-signal` restricts the possible positions and scales of atoms in the dictionary
+so that they fully overlap with the signal. This option should be set to obtain full compatibility with MPTK.
+Otherwise (default), the atoms may exceed the signal range
+and the signal will be assumed to have zero values outside the actual range.
+
+* `--gabor` enables the use of Gabor atoms in the dictionary.
+This flag is implicit if any of the `--gabor-*` parameters is set.
 
 * `--gabor-scale-min` specifies the minimum scale of Gabor atoms in the dictionary.
 If not specified, the minimum scale is taken as the shortest scale permitted
@@ -222,8 +245,6 @@ of Gabor atoms in the dictionary. If not specified, defaults to Nyquist frequenc
 
 Specifying `--gabor-scale-min`, `--gabor-scale-max` and `--gabor-freq-max` is not
 mandatory, but it allows to additionally reduce the computational time.
-These three options have their counterparts for other envelope functions as well
-(e.g. `--tri-*`).
 
 #### Parallelization scheme
 
@@ -246,3 +267,30 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 You should have received a copy of the GNU General Public License along with
 empi (file “LICENCE”); if not, write to the Free Software Foundation, Inc.,
 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+
+### Disclaimer for the included source code of the CLI11 project
+
+CLI11 2.1.2 Copyright (c) 2017-2021 University of Cincinnati, developed by Henry
+Schreiner under NSF AWARD 1414736. All rights reserved.
+
+Redistribution and use in source and binary forms of CLI11, with or without
+modification, are permitted provided that the following conditions are met:
+1. Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+3. Neither the name of the copyright holder nor the names of its contributors
+   may be used to endorse or promote products derived from this software without
+   specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
