@@ -1,5 +1,5 @@
 /**********************************************************
- * Piotr T. Różański (c) 2015–2022                        *
+ * Piotr T. Różański (c) 2015-2023                        *
  *   Enhanced Matching Pursuit Implementation (empi)      *
  * See README.md and LICENCE for details.                 *
  **********************************************************/
