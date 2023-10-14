@@ -54,7 +54,7 @@ jobs:
 
     - name: Setup vcpkg (Windows)
       if: runner.os == 'Windows'
-      uses: lukka/run-vcpkg@v9
+      uses: lukka/run-vcpkg@v10
       with:
         vcpkgDirectory: ${{ runner.workspace }}/vcpkg/
 
