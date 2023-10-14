@@ -52,18 +52,16 @@ jobs:
       if: runner.os == 'Linux'
       run: sudo apt-get update && sudo apt-get install -y libfftw3-dev
 
-    - name: Setup vcpkg (Windows)
+    - name: Install dependencies (Windows)
       if: runner.os == 'Windows'
-      uses: lukka/run-vcpkg@v10
+      uses: johnwason/vcpkg-action@v5
+      id: vcpkg
       with:
-        vcpkgDirectory: ${{ runner.workspace }}/vcpkg/
-        vcpkgGitCommitId: '9edb1b8e590cc086563301d735cae4b6e732d2d2'  # Optional, check latest vcpkg commit ID to use
-
-    - name: Install FFTW using vcpkg (Windows)
-      if: runner.os == 'Windows'
-      run: |
-        ./vcpkg/vcpkg install fftw3
-        ./vcpkg/vcpkg integrate install
+        pkgs: fftw3
+        triplet: x64-windows-release
+        cache-key: ${{ matrix.os }}
+        revision: master
+        token: ${{ github.token }}
 
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
@@ -80,3 +78,12 @@ jobs:
     - name: Build
       # Build your program with the given configuration. Note that --config is needed because the default Windows generator is a multi-config generator (Visual Studio generator).
       run: cmake --build ${{ steps.strings.outputs.build-output-dir }} --config ${{ matrix.build_type }} --target empi
+
+    - name: Archive production artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: empi
+        path: |
+          empi
+          README.md
+          LICENCE
