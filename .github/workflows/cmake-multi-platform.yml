@@ -73,6 +73,7 @@ jobs:
         -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
         ${{ runner.os == 'Windows' && '-DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake' || '' }}
         ${{ runner.os == 'Windows' && '-DVCPKG_TARGET_TRIPLET=x64-windows-release' || '' }}
+        ${{ runner.os == 'Windows' && '-DVCPKG_MANIFEST_MODE=OFF' || '' }}
         ${{ runner.os == 'Linux' && '-DSTANDALONE=TRUE' || '' }}
         -S ${{ github.workspace }}
 
