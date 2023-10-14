@@ -57,7 +57,7 @@ jobs:
       uses: johnwason/vcpkg-action@v5
       id: vcpkg
       with:
-        pkgs: fftw3
+        pkgs: fftw3 pthread
         triplet: x64-windows-release
         cache-key: ${{ matrix.os }}
         revision: master

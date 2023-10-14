@@ -3,9 +3,9 @@
  *   Enhanced Matching Pursuit Implementation (empi)      *
  * See README.md and LICENCE for details.                 *
  **********************************************************/
+#include <cstdio>
 #include <memory>
 #include <stdexcept>
-#include <unistd.h>
 #include "BookWriter.h"
 
 #if defined(__BYTE_ORDER) && __BYTE_ORDER == __BIG_ENDIAN
@@ -173,7 +173,7 @@ void SQLiteBookWriter::write(Array2D<double> data, EpochIndex epoch, const std::
 
 std::shared_ptr<sqlite3> SQLiteBookWriter::create_database(const char *path) {
     sqlite3 *db = nullptr;
-    unlink(path);
+    remove(path);
     int result = sqlite3_open_v2(path, &db, SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE, nullptr);
     if (result != SQLITE_OK || db == nullptr) {
         throw std::runtime_error("cannot open SQLite file");

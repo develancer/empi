@@ -32,6 +32,7 @@ if(NOT DEFINED APP_VERSION)
     set(APP_VERSION "1.?.?")
 endif()
 add_definitions("-DAPP_VERSION=\"${APP_VERSION}\"")
+add_definitions("-D_USE_MATH_DEFINES")
 
 include(CheckLanguage)
 check_language(CUDA)
