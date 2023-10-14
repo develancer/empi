@@ -57,6 +57,7 @@ jobs:
       uses: lukka/run-vcpkg@v10
       with:
         vcpkgDirectory: ${{ runner.workspace }}/vcpkg/
+        vcpkgGitCommitId: '97a66cd144358612fab189bf2836619f392ef083'  # Optional, check latest vcpkg commit ID to use
 
     - name: Install FFTW using vcpkg (Windows)
       if: runner.os == 'Windows'
@@ -73,6 +74,7 @@ jobs:
         -DCMAKE_C_COMPILER=${{ matrix.c_compiler }}
         -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
         ${{ runner.os == 'Windows' && '-DCMAKE_TOOLCHAIN_FILE=${{ runner.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake' || '' }}
+        ${{ runner.os == 'Linux' && '-DSTANDALONE=TRUE' || '' }}
         -S ${{ github.workspace }}
 
     - name: Build
