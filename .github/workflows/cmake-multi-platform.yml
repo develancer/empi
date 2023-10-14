@@ -57,7 +57,7 @@ jobs:
       uses: lukka/run-vcpkg@v10
       with:
         vcpkgDirectory: ${{ runner.workspace }}/vcpkg/
-        vcpkgGitCommitId: '97a66cd144358612fab189bf2836619f392ef083'  # Optional, check latest vcpkg commit ID to use
+        vcpkgGitCommitId: '9edb1b8e590cc086563301d735cae4b6e732d2d2'  # Optional, check latest vcpkg commit ID to use
 
     - name: Install FFTW using vcpkg (Windows)
       if: runner.os == 'Windows'
