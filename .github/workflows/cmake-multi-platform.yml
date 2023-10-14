@@ -71,19 +71,20 @@ jobs:
         -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }}
         -DCMAKE_C_COMPILER=${{ matrix.c_compiler }}
         -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
-        ${{ runner.os == 'Windows' && '-DCMAKE_TOOLCHAIN_FILE=${{ runner.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake' || '' }}
+        ${{ runner.os == 'Windows' && '-DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake' || '' }}
+        ${{ runner.os == 'Windows' && '-DVCPKG_TARGET_TRIPLET=x64-windows-release' || '' }}
         ${{ runner.os == 'Linux' && '-DSTANDALONE=TRUE' || '' }}
         -S ${{ github.workspace }}
 
     - name: Build
       # Build your program with the given configuration. Note that --config is needed because the default Windows generator is a multi-config generator (Visual Studio generator).
-      run: cmake --build ${{ steps.strings.outputs.build-output-dir }} --config ${{ matrix.build_type }} --target empi
+      run: cmake ${{ steps.vcpkg.outputs.vcpkg-cmake-config }} --build ${{ steps.strings.outputs.build-output-dir }} --config ${{ matrix.build_type }} --target empi
 
     - name: Archive production artifacts
       uses: actions/upload-artifact@v3
       with:
         name: empi
         path: |
-          empi
+          ${{ steps.strings.outputs.build-output-dir }}/empi
           README.md
           LICENCE
