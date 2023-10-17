@@ -10,6 +10,7 @@
 #include <condition_variable>
 #include <list>
 #include <mutex>
+#include <stdexcept>
 
 /**
  * Synchronized (thread-safe) task queue for producer-consumer pattern with multiple consumers.

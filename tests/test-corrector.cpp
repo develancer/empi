@@ -4,6 +4,7 @@
  * See README.md and LICENCE for details.                 *
  **********************************************************/
 #include <cstdio>
+#include <functional>
 #include <random>
 #include "Array.h"
 #include "BlockAtomObjective.h"
