@@ -77,6 +77,7 @@ std::vector<std::list<ExportedAtom>> prepare_atoms() {
 
 void test_json_writer() {
     Array2D<double> data(2, 4);
+    data.fill(0);
     auto atoms = prepare_atoms();
     JsonBookWriter writer(16, 4, tmp_name);
     writer.write(data, EpochIndex{0, 8}, atoms);
