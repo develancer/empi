@@ -11,6 +11,7 @@
 const char *const tmp_name = ".test-book-writer.tmp";
 
 const char *const expected = "{\n\
+\"version\": \"" APP_VERSION "\",\n\
 \"channel_count\": 2,\n\
 \"sampling_frequency_Hz\": 16,\n\
 \"segments\": [{\n\
