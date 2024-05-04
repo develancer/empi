@@ -23,7 +23,7 @@ public:
     void operator()(bool wait = true) {
         BasicAtomPointer atom;
         while (task_queue->get(atom, wait)) {
-            atom->extend(true); // ExtendedAtomPointer will be put into cache
+            (void) atom->extend(true); // ExtendedAtomPointer will be put into cache
             task_queue->notify();
         }
     }
