@@ -9,9 +9,25 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release")
 endif()
 
-find_package(PkgConfig REQUIRED)
-pkg_search_module(FFTW REQUIRED fftw3 IMPORTED_TARGET)
-include_directories(PkgConfig::FFTW)
+if(APPLE)
+    execute_process(
+        COMMAND brew --prefix fftw
+        OUTPUT_VARIABLE FFTW_PREFIX
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+    include_directories("${FFTW_PREFIX}/include")
+    link_directories("${FFTW_PREFIX}/lib")
+endif()
+
+if(NOT UNIX)
+    find_package(FFTW3 CONFIG REQUIRED)
+    find_path(FFTW_INCLUDE_DIR NAMES fftw3.h)
+    find_library(FFTW_LIBRARY NAMES fftw3 libfftw3-3)
+    add_library(fftw3 ALIAS FFTW3::fftw3)
+
+    include_directories(${FFTW_INCLUDE_DIR})
+    link_libraries(${FFTW_LIBRARY})
+endif()
 
 find_package(Git)
 set(VERSION_FILE "${CMAKE_SOURCE_DIR}/version")
