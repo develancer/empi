@@ -6,6 +6,15 @@
 #include <stdexcept>
 #include "File.h"
 
+#ifdef _WIN32
+int fseeko(FILE *stream, off_t offset, int whence) {
+    return _fseeki64(stream, static_cast<__int64>(offset), whence);
+}
+off_t ftello(FILE *stream) {
+    return static_cast<off_t>(_ftelli64(stream));
+}
+#endif
+
 //////////////////////////////////////////////////////////////////////////////
 
 File::File(const char *path, const char *mode)

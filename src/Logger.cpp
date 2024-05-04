@@ -6,6 +6,12 @@
 #include <ctime>
 #include "Logger.h"
 
+#ifdef _WIN32
+void ctime_r(const time_t* timep, char* buf) {
+    ctime_s(buf, 26, timep);
+}
+#endif
+
 //////////////////////////////////////////////////////////////////////////////
 
 void Logger::header(const char* type) {

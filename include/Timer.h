@@ -6,12 +6,13 @@
 #ifndef EMPI_TIMER_H
 #define EMPI_TIMER_H
 
+#include <chrono>
 #include <memory>
 
 class ElapsingTimer {
     const bool hasMessage_;
 
-    struct timeval start_;
+    std::chrono::time_point<std::chrono::steady_clock> start_;
 
     ElapsingTimer(const ElapsingTimer &);
 
@@ -31,11 +32,15 @@ class Timer {
     std::unique_ptr<ElapsingTimer> timer_;
 
 public:
-    Timer();
+    Timer() =default;
 
     void start();
 
-    void start(const char *msg, ...) __attribute__ (( format (printf, 2, 3)));
+    void start(const char *msg, ...)
+    #ifdef __GNUC__
+    __attribute__ (( format (printf, 2, 3)))
+    #endif
+    ;
 
     [[nodiscard]] float time() const;
 

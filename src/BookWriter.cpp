@@ -68,7 +68,7 @@ void JsonBookWriter::write(Array2D<double> data, EpochIndex epoch, const std::ve
     } else {
         fputs("},{\n\n", file.get());
     }
-    fprintf(file.get(), "\"sample_count\": %ld,\n", N);
+    fprintf(file.get(), "\"sample_count\": %td,\n", N);
     fprintf(file.get(), "\"segment_length_s\": %.15lg,\n", N / freq_sampling);
     fprintf(file.get(), "\"segment_offset_s\": %.15lg,\n", segment_offset_s);
     fputs("\"channels\": [{\n", file.get());

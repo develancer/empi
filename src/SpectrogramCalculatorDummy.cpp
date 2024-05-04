@@ -3,13 +3,14 @@
  *   Enhanced Matching Pursuit Implementation (empi)      *
  * See README.md and LICENCE for details.                 *
  **********************************************************/
+#include <vector>
 #include "Array.h"
 #include "SpectrogramCalculatorDummy.h"
 
 //////////////////////////////////////////////////////////////////////////////
 
 void SpectrogramCalculatorDummy::compute(const SpectrogramRequest &request) {
-    double tmp_for_extractor[request.output_bins];
+    std::vector<double> tmp_for_extractor(request.output_bins);
     request.assertCorrectness();
 
     Array2D<complex> tmp_spectra(request.channel_count, request.output_bins);
@@ -30,6 +31,6 @@ void SpectrogramCalculatorDummy::compute(const SpectrogramRequest &request) {
         }
         input_offset += request.input_shift;
         request.maxima[m] = request.extractor(request.channel_count, request.output_bins, tmp_spectra.get(),
-                                              request.correctors, tmp_for_extractor, nullptr);
+                                              request.correctors, tmp_for_extractor.data(), nullptr);
     }
 }

@@ -5,14 +5,13 @@
  **********************************************************/
 #include <cstdio>
 #include <cstdarg>
-#include <sys/time.h>
 #include "Timer.h"
 
 //////////////////////////////////////////////////////////////////////////////
 
 ElapsingTimer::ElapsingTimer()
         : hasMessage_(false) {
-    gettimeofday(&start_, 0);
+    start_ = std::chrono::steady_clock::now();
 }
 
 ElapsingTimer::ElapsingTimer(const char *msg, va_list ap)
@@ -23,41 +22,38 @@ ElapsingTimer::ElapsingTimer(const char *msg, va_list ap)
         fflush(stderr);
     }
 
-    gettimeofday(&start_, 0);
+    start_ = std::chrono::steady_clock::now();
 }
 
-ElapsingTimer::~ElapsingTimer(void) {
+ElapsingTimer::~ElapsingTimer() {
     if (hasMessage_) {
         fprintf(stderr, "(%.3f s)\n", time());
         fflush(stderr);
     }
 }
 
-float ElapsingTimer::time(void) const {
-    struct timeval now;
-    gettimeofday(&now, 0);
-    return (now.tv_usec - start_.tv_usec) * 1.0e-6 + (now.tv_sec - start_.tv_sec);
+float ElapsingTimer::time() const {
+    auto now = std::chrono::steady_clock::now();
+    return static_cast<float>(std::chrono::duration_cast<std::chrono::milliseconds>(now - start_).count()) * 1.0e-6f;
 }
 
 //////////////////////////////////////////////////////////////////////////////
 
-Timer::Timer(void) {}
-
-void Timer::start(void) {
-    timer_.reset(new ElapsingTimer());
+void Timer::start() {
+    timer_ = std::make_unique<ElapsingTimer>();
 }
 
 void Timer::start(const char *msg, ...) {
     va_list ap;
     va_start(ap, msg);
-    timer_.reset(new ElapsingTimer(msg, ap));
+    timer_ = std::make_unique<ElapsingTimer>(msg, ap);
     va_end(ap);
 }
 
-float Timer::time(void) const {
-    return timer_.get() ? timer_->time() : 0.0f;
+float Timer::time() const {
+    return timer_ ? timer_->time() : 0.0f;
 }
 
-void Timer::stop(void) {
+void Timer::stop() {
     timer_.reset();
 }

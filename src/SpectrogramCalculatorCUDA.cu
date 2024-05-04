@@ -38,6 +38,9 @@ void cufft_check(cufftResult_t result) {
 
 //////////////////////////////////////////////////////////////////////////////
 
+#ifdef _WIN32
+__declspec(align(16))
+#endif
 class CudaCorrector {
     cucomplex ft;
     cucomplex re_factor;
@@ -55,7 +58,11 @@ public:
         const double norm_corrected = corrected.x * corrected.x + corrected.y * corrected.y;
         return 0.5 * (norm_corrected + corrected2.x * ft.x + corrected2.y * ft.y);
     }
-} __attribute__ ((aligned (16)));
+}
+#ifndef  _WIN32
+__attribute__ ((aligned (16)))
+#endif
+;
 
 //////////////////////////////////////////////////////////////////////////////
 

@@ -9,6 +9,9 @@
 #include "ExtraData.h"
 #include "Types.h"
 
+#ifdef _WIN32
+__declspec(align(16))
+#endif
 class Corrector {
     complex ft;
     complex re_factor;
@@ -25,6 +28,10 @@ public:
 
     double compute(complex value, ExtraData* extra = nullptr) const;
 
-} __attribute__ ((aligned (16)));
+}
+#ifndef  _WIN32
+__attribute__ ((aligned (16)))
+#endif
+;
 
 #endif //EMPI_CORRECTOR_H
