@@ -20,7 +20,7 @@ if(APPLE)
 endif()
 
 if(NOT UNIX)
-    #find_package(FFTW3 CONFIG REQUIRED)
+    find_package(FFTW3 CONFIG REQUIRED)
     #find_path(FFTW_INCLUDE_DIR NAMES fftw3.h)
     find_library(FFTW_LIBRARY NAMES fftw3 libfftw3-3)
     add_library(fftw3 ALIAS FFTW3::fftw3)
