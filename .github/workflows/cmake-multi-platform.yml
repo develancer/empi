@@ -22,14 +22,17 @@ jobs:
       #
       # To add more build types (Release, Debug, RelWithDebInfo, etc.) customize the build_type list.
       matrix:
-        os: [windows-latest]
+        os: [macos-13, macos-14]
         build_type: [Release]
         c_compiler: [gcc, cl]
         include:
           - os: ubuntu-latest
             c_compiler: gcc
             cpp_compiler: g++
-          - os: macos-latest
+          - os: macos-13
+            c_compiler: gcc
+            cpp_compiler: g++
+          - os: macos-14
             c_compiler: gcc
             cpp_compiler: g++
           - os: windows-latest
@@ -38,7 +41,9 @@ jobs:
         exclude:
           - os: ubuntu-latest
             c_compiler: cl
-          - os: macos-latest
+          - os: macos-13
+            c_compiler: cl
+          - os: macos-14
             c_compiler: cl
           - os: windows-latest
             c_compiler: gcc
@@ -54,7 +59,7 @@ jobs:
       shell: bash
       run: |
         echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
-        echo "empi=empi-`git describe --tags`-`echo ${{ runner.os }} | tr [:upper:] [:lower:]`" >> "$GITHUB_OUTPUT"
+        echo "empi=empi-`git describe --tags`-`echo ${{ runner.os == 'macOS' && matrix.os || runner.os }} | tr [:upper:] [:lower:]`" >> "$GITHUB_OUTPUT"
 
     - name: Install dependencies (Linux)
       if: runner.os == 'Linux'
