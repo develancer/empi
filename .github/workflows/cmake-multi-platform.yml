@@ -4,9 +4,9 @@ name: CMake on multiple platforms
 
 on:
   push:
-    branches: [ "master" ]
+    branches: [ "test-build" ]
   pull_request:
-    branches: [ "master" ]
+    branches: [ "test-build" ]
 
 jobs:
   build:
@@ -22,7 +22,7 @@ jobs:
       #
       # To add more build types (Release, Debug, RelWithDebInfo, etc.) customize the build_type list.
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [windows-latest]
         build_type: [Release]
         c_compiler: [gcc, cl]
         include:
@@ -89,7 +89,9 @@ jobs:
 
     - name: Build
       # Build your program with the given configuration. Note that --config is needed because the default Windows generator is a multi-config generator (Visual Studio generator).
-      run: cmake --build ${{ steps.strings.outputs.build-output-dir }} --config ${{ matrix.build_type }} --target empi
+      run: |
+        type D:\a\empi\empi\vcpkg\scripts\buildsystems\vcpkg.cmake
+        cmake --build ${{ steps.strings.outputs.build-output-dir }} --config ${{ matrix.build_type }} --target empi
 
     - name: Prepare production artifacts (Non-Windows)
       if: runner.os != 'Windows'
