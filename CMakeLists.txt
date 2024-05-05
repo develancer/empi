@@ -22,11 +22,8 @@ endif()
 if(NOT UNIX)
     find_package(FFTW3 CONFIG REQUIRED)
     find_path(FFTW_INCLUDE_DIR NAMES fftw3.h)
-    find_library(FFTW_LIBRARY NAMES fftw3 libfftw3-3)
     add_library(fftw3 ALIAS FFTW3::fftw3)
-
     include_directories(${FFTW_INCLUDE_DIR})
-    #link_libraries(${FFTW_LIBRARY})
 endif()
 
 find_package(Git)
