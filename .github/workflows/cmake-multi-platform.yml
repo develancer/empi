@@ -59,7 +59,7 @@ jobs:
       shell: bash
       run: |
         echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
-        echo "empi=empi-`git describe --tags`-`echo ${{ runner.os == 'macOS' && matrix.os || runner.os }} | tr [:upper:] [:lower:]`" >> "$GITHUB_OUTPUT"
+        echo "empi=empi-`git describe --tags`-`echo ${{ runner.os }}-${{ runner.arch }} | tr [:upper:] [:lower:]`" >> "$GITHUB_OUTPUT"
 
     - name: Install dependencies (Linux)
       if: runner.os == 'Linux'
