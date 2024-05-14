@@ -66,6 +66,7 @@ jobs:
         -DCMAKE_CXX_COMPILER=${{ runner.os == 'Windows' && 'cl' || 'g++' }}
         -DCMAKE_C_COMPILER=${{ runner.os == 'Windows' && 'cl' || 'gcc' }}
         -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+        ${{ runner.os == 'Windows' && '-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded' || '' }}
         ${{ runner.os == 'Linux' && '-DSTANDALONE=TRUE' || '' }}
         -S ${{ github.workspace }}
 

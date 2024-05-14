@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.12)
+cmake_minimum_required(VERSION 3.15)
 project(empi CXX C)
 set(CMAKE_CXX_STANDARD 17)
 
@@ -100,9 +100,6 @@ else()
 endif()
 
 add_executable(empi src/special/empi.cpp)
-if(NOT UNIX)
-    set_property(TARGET empi PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded")
-endif()
 install(TARGETS empi)
 target_link_libraries(empi empi-cpu fftw3)
 if(WITH_CUDA)
