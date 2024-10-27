@@ -4,20 +4,29 @@ empi
 Enhanced Matching Pursuit Implementation (empi)  
 Author: Piotr Różański <piotr@develancer.pl> ⓒ 2015–2023
 
+**Cite as:**
+
+> Piotr T. Różański:
+> _empi_: GPU-Accelerated Matching Pursuit with Continuous Dictionaries,  
+> ACM Transactions on Mathematical Software, Volume 50, Issue 3, Article 17 (2024),
+> DOI: [10.1145/3674832](https://doi.org/10.1145/3674832)
+
 ## What is empi?
 
 empi is an implementation of Matching Pursuit algorithm
 ([Mallat, Zhang 1993](http://dx.doi.org/10.1109/78.258082))
 with optimal dictionaries
 ([Kuś, Różański, Durka 2013](http://doi.org/10.1186/1475-925X-12-94))
+including simulation of continuous (quasi-infinite) dictionaries
+([Różański 2024](https://doi.org/10.1145/3674832)),
 supporting both Gabor atoms as well as atoms related to non-Gaussian envelopes
 ([Różański 2020](https://doi.org/10.1049/iet-spr.2019.0246)).
 It is a highly-optimized multi-threaded version written in C++, with GPU support,
 designed as a faster replacement for
-[MP5](https://github.com/BrainTech/matching-pursuit). Prior version shared most
-of the input/output specification with MP5, and could be used as MP decomposition
-tool in [SVAROG](https://github.com/BrainTech/svarog). Support for the current
-version is underway.
+[MP5](https://github.com/BrainTech/matching-pursuit).
+Additionally, this implementation can be used as MP decomposition
+tool in [SVAROG](https://github.com/BrainTech/svarog)’s most
+[up-to-date version](https://gitlab.com/fuw_software/svarog2-packager/-/releases).
 
 The goal is to provide an optimal decomposition of the input signal as a linear
 combination of functions from predefined set (dictionary) consisting mainly of
@@ -34,7 +43,7 @@ There are two modes of CPU parallelization, which can also be used together.
 First, a number of independent workers can be started, and each worker will
 process a separate subset of segments and/or channels. Second, each worker can
 be started with a number of concurrent CPU threads. Either way, in addition to
-all workers' threads, an additional single thread will be active and responsible
+all workers’ threads, an additional single thread will be active and responsible
 for writing the decomposition results from all workers, in proper order, to the
 output file.
 
@@ -49,7 +58,7 @@ _empi_ includes code from CLI11 and SQLite projects in the “vendor” subdirec
 
 You can compile empi from source, or download the precompiled versions from the
 “Releases” tab. Both are available on
-[project's GitHub](https://github.com/develancer/empi). If you decide to use
+[project’s GitHub](https://github.com/develancer/empi). If you decide to use
 the precompiled binaries, you can skip the “Compilation” section altogether.
 However, since the purpose of the provided binaries is to be as compatible as
 possible, they may not take full advantage of your specific architecture. To
