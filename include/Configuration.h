@@ -64,6 +64,13 @@ struct Configuration {
     unsigned cpu_workers = 1;
 
     /**
+     * Whether to use CPU affinity for threads.
+     * It should improve performance if only one empi instance is running,
+     * so threads are spread over available CPU cores evenly.
+     */
+    bool enable_affinity = false;
+
+    /**
      * Energy ε² parameter corresponding to the size of the dictionary.
      * Smaller values correspond to more fine-grained dictionaries.
      */
