@@ -6,8 +6,13 @@
 #include <pthread.h>
 #include "Thread.h"
 
+bool Thread::affinity_enabled = false;
+
 void Thread::affix_to_cpu() {
 #ifdef _GNU_SOURCE
+    if (!affinity_enabled) {
+        return;
+    }
     static unsigned cpu_index = 0;
     cpu_set_t cpuset;
     CPU_ZERO(&cpuset);

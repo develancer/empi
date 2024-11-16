@@ -106,6 +106,7 @@ static int empi(const Configuration &configuration) {
         cuda_host_disable();
     }
 #endif
+    Thread::affinity_enabled = configuration.enable_affinity;
 
     Logger::info("Starting empi");
 

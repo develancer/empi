@@ -12,6 +12,8 @@
 class Thread : public std::thread
 {
 public:
+    static bool affinity_enabled;
+
     template<class Function>
     explicit Thread(Function function) : std::thread(std::move(function))
     {

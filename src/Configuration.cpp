@@ -63,8 +63,8 @@ bool Configuration::parse(int argc, char **argv, int &error_code) {
             {"global", OPTIMIZATION_GLOBAL}
     };
     std::string optimization_specs = "global";
-    app.add_option("input_file", input_file_path, "Path to the input signal file or input configuration file")->required();
-    app.add_option("output_file", output_file_path, "Path for the output file unless configuration file is used")->required();
+    app.add_option("input_file", input_file_path, "Path to the input signal file")->required();
+    app.add_option("output_file", output_file_path, "Path for the output file")->required();
     app.add_option("-c", channel_count, "Number of channels in the input signal")
             ->check(check_positive_int)->capture_default_str();
     app.add_option("-f", freq_sampling, "Sampling frequency of the input signal in hertz (default: 1 Hz)")
@@ -80,12 +80,15 @@ bool Configuration::parse(int argc, char **argv, int &error_code) {
     app.add_option("--cpu-workers", cpu_workers, "Number of independent CPU workers to run")
             ->check(check_positive_int)->capture_default_str();
     app.add_flag("--delta", include_delta_atoms, "Include delta-type atoms");
+    app.add_option("--dictionary-output", dictionary_output, "Path to create a dictionary structure XML file (default: none)");
+#ifdef _GNU_SOURCE
+    app.add_flag("--enable-affinity", enable_affinity, "Enable CPU affinity for threads (don't use if running multiple empi instances)");
+#endif
     app.add_flag("--full-atoms-in-signal", full_atoms_in_signal, "Prohibit atoms from exceeding the time range of the signal");
     app.add_option("--energy-error", energy_error, "Epsilon-squared parameter corresponding to the dictionary size")
             ->check(check_positive_number)->capture_default_str();
 #ifdef HAVE_CUDA
     std::string gpu_specs;
-    app.add_option("--dictionary-output", dictionary_output, "Path to create a dictionary structure XML file (default: none)");
     app.add_option("--gpu-id", gpu_specs, "Comma-separated ID list of GPU device(s) to use (default: none)");
 #endif
     app.add_flag("--input64", input64, "Read input data as double-precision (64-bit) floating point values (default: read as 32-bit values)");
