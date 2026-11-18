@@ -114,7 +114,8 @@ void JsonBookWriter::write(Array2D<double> data, EpochIndex epoch, const std::ve
 
 //////////////////////////////////////////////////////////////////////////////
 
-SQLiteBookWriter::SQLiteBookWriter(double freq_sampling, index_t epoch_sample_count, const std::string &path_to_book_file)
+SQLiteBookWriter::SQLiteBookWriter(double freq_sampling, index_t epoch_sample_count, const std::string &path_to_book_file,
+                                   const std::vector<std::pair<std::string, std::string>> &extra_metadata)
 : BookWriter(freq_sampling, epoch_sample_count) {
     db = create_database(path_to_book_file.c_str());
     execute("PRAGMA journal_mode = OFF");
@@ -125,6 +126,12 @@ SQLiteBookWriter::SQLiteBookWriter(double freq_sampling, index_t epoch_sample_co
     stmt_insert_metadata = prepare("INSERT INTO metadata VALUES (?, ?)");
     stmt_insert_samples = prepare("INSERT INTO samples VALUES (?, ?, ?)");
     stmt_insert_segment = prepare("INSERT INTO segments VALUES (?, ?, ?, ?)");
+
+    for (const auto &kv : extra_metadata) {
+        insert_metadata(kv.first.c_str(), kv.second.c_str(), [](auto ...params) {
+            return sqlite3_bind_text(params..., -1, SQLITE_STATIC);
+        });
+    }
 }
 
 void SQLiteBookWriter::finalize() {

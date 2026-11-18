@@ -149,7 +149,15 @@ static int empi(const Configuration &configuration) {
     if (ci_ends_with(configuration.output_file_path, ".json")) {
         book_writer = std::make_unique<JsonBookWriter>(freqSampling, reader->get_epoch_sample_count(), configuration.output_file_path.c_str());
     } else {
-        book_writer = std::make_unique<SQLiteBookWriter>(freqSampling, reader->get_epoch_sample_count(), configuration.output_file_path.c_str());
+        auto metadata = configuration.book_metadata;
+        if (!configuration.channel_names.empty()) {
+            std::string names;
+            for (int channel : selected_channels) {
+                names += (names.empty() ? "" : ",") + configuration.channel_names[channel - 1];
+            }
+            metadata.emplace_back("channel_names", names);
+        }
+        book_writer = std::make_unique<SQLiteBookWriter>(freqSampling, reader->get_epoch_sample_count(), configuration.output_file_path.c_str(), metadata);
     }
     auto buffered_writer = std::make_shared<BufferedWriter>(reader->get_epoch_channel_count(), reader->get_epoch_count(), std::move(book_writer));
 

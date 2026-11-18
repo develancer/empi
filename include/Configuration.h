@@ -8,6 +8,8 @@
 
 #include <list>
 #include <string>
+#include <utility>
+#include <vector>
 #include "Extractor.h"
 #include "Family.h"
 #include "OptimizationMode.h"
@@ -165,6 +167,17 @@ struct Configuration {
      * Path for the output decomposition file.
      */
     std::string output_file_path;
+
+    /**
+     * Names of all channels in the input signal (optional).
+     */
+    std::vector<std::string> channel_names;
+
+    /**
+     * Additional (param, value) pairs for the metadata table of the SQLite book
+     * (channel_names is added in empi.cpp, as it depends on the selected channels).
+     */
+    std::vector<std::pair<std::string, std::string>> book_metadata;
 
     /**
      * Range of channels to process, e.g. "1-3,5,8-9", starting from 1.

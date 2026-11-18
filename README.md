@@ -139,6 +139,7 @@ Options:
   -o TEXT                     Parameter optimization mode: none|local|global (default: global)
   -r FLOAT=0.01               Energy of the residual as a fraction of the total signal energy
   --channels TEXT             Range of channels to process, e.g. 1-3,5,8-9 (default: all)
+  --channel-names TEXT        Comma-separated names of all channels in the input signal, stored in the SQLite book (default: none)
   --cpu-threads UINT=6        Number of CPU threads for each worker
   --cpu-workers UINT=1        Number of independent CPU workers to run
   --delta                     Include delta-type atoms
@@ -155,6 +156,7 @@ Options:
   --segment-size INT          Number of samples in each segment (default: all samples)
   --segments TEXT Needs: --segment-size
                               Range of signal segments, e.g. 1-100,201-300 (default: all)
+  --unit TEXT:{V,mV,nV,uV}    Unit of the input samples, stored in the SQLite book (default: none)
   --gabor                     Include atoms with Gaussian envelope (not needed if any other --gabor-* option is given)
   --gabor-freq-max FLOAT      Maximum frequency (in hertz) for Gaussian envelope (default: auto)
   --gabor-scale-min FLOAT     Minimum scale (in seconds) for Gaussian envelope (default: auto)
@@ -195,6 +197,16 @@ These can be specified as a single channel `1`, as an interval `1-5`, as a list 
 a list of epoch numbers (starting from 1) to be processed. These can be passed
 as a single epoch `1`, as an interval `1-100`, as a list `1,2,3` or mixed:
 `1-100,201-300,400`. If not given, all epochs (the entire signal) will be processed.
+* `--channel-names` gives the names of all channels in the input file, separated by commas
+(e.g. `--channel-names Fp1,Fp2,F3` for `-c 3`); the number of names must equal the value of `-c`.
+The names of the decomposed channels (see `--channels`) are stored in the `channel_names` entry
+of the SQLite book's `metadata` table, in the order of the book's channels.
+* `--unit` gives the unit of the input samples, one of `V`, `mV`, `uV` or `nV`
+(microvolts are written `uV`, with a plain ASCII `u`).
+It is stored in the SQLite book's `metadata` table as `signal_unit`, together with
+`scale_to_uV`, the factor converting the book's amplitudes to microvolts.
+
+Neither option affects the JSON output.
 
 #### Decomposition process
 
@@ -213,6 +225,8 @@ The decomposition will iterate until `-i` iterations or
   each channel is processed separately. Detailed description of multi-variate
   decomposition modes can be found in the literature, e.g.
   [Kuś, Różański, Durka 2013](http://doi.org/10.1186/1475-925X-12-94).
+  The SQLite book records the chosen algorithm as `algorithm` (`SMP`, `MMP1` or `MMP3`)
+  in its `metadata` table.
 
 #### Structure of the dictionary
 

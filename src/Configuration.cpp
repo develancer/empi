@@ -75,6 +75,8 @@ bool Configuration::parse(int argc, char **argv, int &error_code) {
     app.add_option("-r", energy_max_residual, "Energy of the residual as a fraction of the total signal energy")
             ->check(check_positive_number)->capture_default_str();
     app.add_option("--channels", channel_specs, "Range of channels to process, e.g. 1-3,5,8-9 (default: all)");
+    std::string channel_names_specs;
+    app.add_option("--channel-names", channel_names_specs, "Comma-separated names of all channels in the input signal, stored in the SQLite book (default: none)");
     app.add_option("--cpu-threads", cpu_threads, "Number of CPU threads for each worker")
             ->check(check_positive_int)->capture_default_str();
     app.add_option("--cpu-workers", cpu_workers, "Number of independent CPU workers to run")
@@ -101,6 +103,15 @@ bool Configuration::parse(int argc, char **argv, int &error_code) {
     app.add_option("--residual-log-dir", residual_log_dir, "Directory in which residual energy log files should be created (default: none)");
     app.add_option("--segment-size", segment_size, "Number of samples in each segment (default: all samples)");
     app.add_option("--segments", segment_specs, "Range of signal segments, e.g. 1-100,201-300 (default: all)");
+    std::string signal_unit;
+    const std::map<std::string, std::string> scale_to_uV = {
+            {"V",  "1000000"},
+            {"mV", "1000"},
+            {"uV", "1"},
+            {"nV", "0.001"}
+    };
+    app.add_option("--unit", signal_unit, "Unit of the input samples, stored in the SQLite book (default: none)")
+            ->check(CLI::IsMember(scale_to_uV));
 
     app.get_option("--segments")->needs("--segment-size");
     app.get_option("--mmp1")->excludes("--mmp3");
@@ -200,6 +211,28 @@ bool Configuration::parse(int argc, char **argv, int &error_code) {
             extractor = extractorVariablePhase;
         } else {
             extractor = extractorSingleChannel;
+        }
+        book_metadata.emplace_back("algorithm", mmp1 ? "MMP1" : mmp3 ? "MMP3" : "SMP");
+
+        if (!channel_names_specs.empty()) {
+            channel_names = CLI::detail::split(channel_names_specs, ',');
+            if (channel_names_specs.back() == ',') {
+                channel_names.emplace_back(); // split() drops a trailing empty name
+            }
+            if (channel_names.size() != static_cast<size_t>(channel_count)) {
+                throw CLI::ValidationError("--channel-names", "expected " + std::to_string(channel_count) + " names (as given by -c)");
+            }
+            for (std::string &name : channel_names) {
+                CLI::detail::trim(name);
+                if (name.empty()) {
+                    throw CLI::ValidationError("--channel-names", "channel names must not be empty");
+                }
+            }
+        }
+
+        if (!signal_unit.empty()) {
+            book_metadata.emplace_back("signal_unit", signal_unit);
+            book_metadata.emplace_back("scale_to_uV", scale_to_uV.at(signal_unit));
         }
     });
 
