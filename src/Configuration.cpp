@@ -3,6 +3,7 @@
  *   Enhanced Matching Pursuit Implementation (empi)      *
  * See README.md and LICENCE for details.                 *
  **********************************************************/
+#include <algorithm>
 #include <functional>
 #include <sstream>
 #include <thread>
@@ -35,6 +36,50 @@ std::string check_positive_number(const std::string &input) {
         return "Value " + input + " is not a positive number";
     }
     return {};
+}
+
+/**
+ * Quote the given text for a POSIX shell, unless no quoting is needed.
+ */
+static std::string shell_quote(const std::string &text) {
+    if (!text.empty() && text.find_first_not_of("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789%+,-./:=@_") == std::string::npos) {
+        return text;
+    }
+    std::string quoted = "'";
+    for (const char c : text) {
+        if (c == '\'') {
+            quoted += "'\\''";
+        } else {
+            quoted += c;
+        }
+    }
+    return quoted + "'";
+}
+
+/**
+ * Replace the directory part of the given path with "(...)/" and quote the remaining name.
+ */
+static std::string shorten_path(const std::string &path) {
+    const std::string trimmed = path.substr(0, path.find_last_not_of("/\\") + 1);
+    const size_t slash = trimmed.find_last_of("/\\");
+    return (slash == std::string::npos) ? shell_quote(path) : "(...)/" + shell_quote(trimmed.substr(slash + 1));
+}
+
+/**
+ * Reconstruct the command line as "empi" followed by the shell-quoted arguments,
+ * shortening (with shorten_path) the arguments equal to any of the given paths.
+ */
+static std::string command_line(int argc, char **argv, const std::vector<std::string> &paths) {
+    std::string result = "empi";
+    for (int i = 1; i < argc; ++i) {
+        const std::string arg = argv[i];
+        const size_t equals = (arg.rfind("--", 0) == 0) ? arg.find('=') : std::string::npos;
+        const std::string option = (equals == std::string::npos) ? "" : arg.substr(0, equals + 1);
+        const std::string value = arg.substr(option.size());
+        const bool is_path = std::find(paths.begin(), paths.end(), value) != paths.end();
+        result += ' ' + option + (is_path ? shorten_path(value) : shell_quote(value));
+    }
+    return result;
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -75,10 +120,14 @@ bool Configuration::parse(int argc, char **argv, int &error_code) {
     app.add_option("-r", energy_max_residual, "Energy of the residual as a fraction of the total signal energy")
             ->check(check_positive_number)->capture_default_str();
     app.add_option("--channels", channel_specs, "Range of channels to process, e.g. 1-3,5,8-9 (default: all)");
+    std::string channel_names_specs;
+    app.add_option("--channel-names", channel_names_specs, "Comma-separated names of all channels in the input signal, stored in the book (default: none)");
     app.add_option("--cpu-threads", cpu_threads, "Number of CPU threads for each worker")
             ->check(check_positive_int)->capture_default_str();
     app.add_option("--cpu-workers", cpu_workers, "Number of independent CPU workers to run")
             ->check(check_positive_int)->capture_default_str();
+    bool store_decomp_argv = false;
+    app.add_flag("--decomp-argv", store_decomp_argv, "Store the command line (with directory parts of paths removed) in the book");
     app.add_flag("--delta", include_delta_atoms, "Include delta-type atoms");
     app.add_option("--dictionary-output", dictionary_output, "Path to create a dictionary structure XML file (default: none)");
 #ifdef _GNU_SOURCE
@@ -101,6 +150,7 @@ bool Configuration::parse(int argc, char **argv, int &error_code) {
     app.add_option("--residual-log-dir", residual_log_dir, "Directory in which residual energy log files should be created (default: none)");
     app.add_option("--segment-size", segment_size, "Number of samples in each segment (default: all samples)");
     app.add_option("--segments", segment_specs, "Range of signal segments, e.g. 1-100,201-300 (default: all)");
+    app.add_option("--signal-info", signal_info, "Free-text information on the signal, e.g. \"unit=fT, montage=CAR\", stored in the book (default: none)");
 
     app.get_option("--segments")->needs("--segment-size");
     app.get_option("--mmp1")->excludes("--mmp3");
@@ -196,10 +246,33 @@ bool Configuration::parse(int argc, char **argv, int &error_code) {
 
         if (mmp1) {
             extractor = extractorConstantPhase;
+            variant = "MMP1";
         } else if (mmp3) {
             extractor = extractorVariablePhase;
+            variant = "MMP3";
         } else {
             extractor = extractorSingleChannel;
+            variant = "SMP";
+        }
+
+        if (store_decomp_argv) {
+            decomp_argv = command_line(argc, argv, {input_file_path, output_file_path, residual_log_dir});
+        }
+
+        if (!channel_names_specs.empty()) {
+            channel_names = CLI::detail::split(channel_names_specs, ',');
+            if (channel_names_specs.back() == ',') {
+                channel_names.emplace_back(); // split() drops a trailing empty name
+            }
+            if (channel_names.size() != static_cast<size_t>(channel_count)) {
+                throw CLI::ValidationError("--channel-names", "expected " + std::to_string(channel_count) + " names (as given by -c)");
+            }
+            for (std::string &name : channel_names) {
+                CLI::detail::trim(name);
+                if (name.empty()) {
+                    throw CLI::ValidationError("--channel-names", "channel names must not be empty");
+                }
+            }
         }
     });
 

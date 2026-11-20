@@ -100,6 +100,27 @@ static bool ci_ends_with(const std::string &string, const std::string &suffix) {
     return true;
 }
 
+/**
+ * Collect the metadata to be stored in the book, in addition to the standard fields.
+ */
+static BookWriter::Metadata book_metadata(const Configuration &configuration, const std::vector<int> &selected_channels) {
+    BookWriter::Metadata metadata = {{"variant", configuration.variant}};
+    if (!configuration.decomp_argv.empty()) {
+        metadata.emplace_back("decomp_argv", configuration.decomp_argv);
+    }
+    if (!configuration.signal_info.empty()) {
+        metadata.emplace_back("signal_info", configuration.signal_info);
+    }
+    if (!configuration.channel_names.empty()) {
+        std::string names;
+        for (int channel : selected_channels) {
+            names += (names.empty() ? "" : ",") + configuration.channel_names[channel - 1];
+        }
+        metadata.emplace_back("channel_names", names);
+    }
+    return metadata;
+}
+
 static int empi(const Configuration &configuration) {
 #ifdef HAVE_CUDA
     if (configuration.gpu_devices.empty()) {
@@ -145,11 +166,12 @@ static int empi(const Configuration &configuration) {
         reader = create_signal_reader<float>(configuration, selected_channels);
     }
 
+    auto metadata = book_metadata(configuration, selected_channels);
     std::unique_ptr<BookWriter> book_writer;
     if (ci_ends_with(configuration.output_file_path, ".json")) {
-        book_writer = std::make_unique<JsonBookWriter>(freqSampling, reader->get_epoch_sample_count(), configuration.output_file_path.c_str());
+        book_writer = std::make_unique<JsonBookWriter>(freqSampling, reader->get_epoch_sample_count(), configuration.output_file_path, std::move(metadata));
     } else {
-        book_writer = std::make_unique<SQLiteBookWriter>(freqSampling, reader->get_epoch_sample_count(), configuration.output_file_path.c_str());
+        book_writer = std::make_unique<SQLiteBookWriter>(freqSampling, reader->get_epoch_sample_count(), configuration.output_file_path, std::move(metadata));
     }
     auto buffered_writer = std::make_shared<BufferedWriter>(reader->get_epoch_channel_count(), reader->get_epoch_count(), std::move(book_writer));
 
