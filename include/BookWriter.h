@@ -11,6 +11,8 @@
 #include <list>
 #include <memory>
 #include <queue>
+#include <string>
+#include <utility>
 #include <vector>
 #include "sqlite3.h"
 #include "Array.h"
@@ -22,11 +24,18 @@
  * Base class for all writers for output (decomposition) file formats.
  */
 class BookWriter {
+public:
+    /**
+     * Additional (param, value) pairs stored in the book's metadata, after the standard ones.
+     */
+    using Metadata = std::vector<std::pair<std::string, std::string>>;
+
 protected:
     const double freq_sampling;
     const index_t epoch_sample_count;
+    const Metadata metadata;
 
-    explicit BookWriter(double freq_sampling, index_t epoch_sample_count);
+    explicit BookWriter(double freq_sampling, index_t epoch_sample_count, Metadata metadata);
 
 public:
     virtual ~BookWriter() = default;
@@ -52,7 +61,7 @@ class FileBackedBookWriter : public BookWriter {
 protected:
     File file;
 
-    explicit FileBackedBookWriter(double freq_sampling, index_t epoch_sample_count, const std::string &path_to_book_file);
+    explicit FileBackedBookWriter(double freq_sampling, index_t epoch_sample_count, const std::string &path_to_book_file, Metadata metadata);
 
 public:
     /**
@@ -73,9 +82,10 @@ public:
      * If the file exists, it will be truncated. Otherwise, it will be created.
      *
      * @param path_to_book_file output file path
+     * @param metadata additional (param, value) pairs to be stored as top-level string fields
      */
-    explicit JsonBookWriter(double freq_sampling, index_t epoch_sample_count, const std::string &path_to_book_file)
-    : FileBackedBookWriter(freq_sampling, epoch_sample_count, path_to_book_file) {}
+    explicit JsonBookWriter(double freq_sampling, index_t epoch_sample_count, const std::string &path_to_book_file, Metadata metadata)
+    : FileBackedBookWriter(freq_sampling, epoch_sample_count, path_to_book_file, std::move(metadata)) {}
 
     /**
      * Finalize writing to output file. This should always be called after all segments have been written.
@@ -129,8 +139,9 @@ public:
      * If the file exists, it will be truncated. Otherwise, it will be created.
      *
      * @param path_to_book_file output file path
+     * @param metadata additional (param, value) pairs to be stored in the metadata table
      */
-    explicit SQLiteBookWriter(double freq_sampling, index_t epoch_sample_count, const std::string &path_to_book_file);
+    explicit SQLiteBookWriter(double freq_sampling, index_t epoch_sample_count, const std::string &path_to_book_file, Metadata metadata);
 
     /**
      * Finalize writing to output file. This should always be called after all segments have been written.

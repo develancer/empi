@@ -8,6 +8,7 @@
 
 #include <list>
 #include <string>
+#include <vector>
 #include "Extractor.h"
 #include "Family.h"
 #include "OptimizationMode.h"
@@ -165,6 +166,27 @@ struct Configuration {
      * Path for the output decomposition file.
      */
     std::string output_file_path;
+
+    /**
+     * Names of all channels in the input signal (optional).
+     */
+    std::vector<std::string> channel_names;
+
+    /**
+     * Decomposition variant: "SMP", "MMP1" or "MMP3".
+     */
+    std::string variant;
+
+    /**
+     * Command line used to run empi, with directory parts of paths replaced by "(...)/"
+     * (empty unless --decomp-argv is given).
+     */
+    std::string decomp_argv;
+
+    /**
+     * Free-text information on the signal (optional).
+     */
+    std::string signal_info;
 
     /**
      * Range of channels to process, e.g. "1-3,5,8-9", starting from 1.

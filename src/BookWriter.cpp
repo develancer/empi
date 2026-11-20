@@ -34,19 +34,36 @@ void setBE(float &z, T t) {
 
 //////////////////////////////////////////////////////////////////////////////
 
-BookWriter::BookWriter(double freq_sampling, index_t epoch_sample_count)
-        : freq_sampling(freq_sampling), epoch_sample_count(epoch_sample_count) {}
+BookWriter::BookWriter(double freq_sampling, index_t epoch_sample_count, Metadata metadata)
+        : freq_sampling(freq_sampling), epoch_sample_count(epoch_sample_count), metadata(std::move(metadata)) {}
 
 //////////////////////////////////////////////////////////////////////////////
 
-FileBackedBookWriter::FileBackedBookWriter(double freq_sampling, index_t epoch_sample_count, const std::string &path_to_book_file)
-: BookWriter(freq_sampling, epoch_sample_count), file(path_to_book_file.c_str(), "wb") {}
+FileBackedBookWriter::FileBackedBookWriter(double freq_sampling, index_t epoch_sample_count, const std::string &path_to_book_file, Metadata metadata)
+: BookWriter(freq_sampling, epoch_sample_count, std::move(metadata)), file(path_to_book_file.c_str(), "wb") {}
 
 void FileBackedBookWriter::finalize() {
     fflush(file.get());
 }
 
 //////////////////////////////////////////////////////////////////////////////
+
+static std::string json_string(const std::string &text) {
+    std::string result = "\"";
+    for (const char c : text) {
+        if (c == '"' || c == '\\') {
+            result += '\\';
+            result += c;
+        } else if (static_cast<unsigned char>(c) < 0x20) {
+            char escaped[7];
+            snprintf(escaped, sizeof escaped, "\\u%04x", c);
+            result += escaped;
+        } else {
+            result += c;
+        }
+    }
+    return result + '"';
+}
 
 void JsonBookWriter::finalize() {
     fprintf(file.get(), "}],\n\"segment_count\": %d\n}", total_segments_written);
@@ -64,6 +81,9 @@ void JsonBookWriter::write(Array2D<double> data, EpochIndex epoch, const std::ve
         fprintf(file.get(), "\"version\": \"%s\",\n", APP_VERSION);
         fprintf(file.get(), "\"channel_count\": %d,\n", C);
         fprintf(file.get(), "\"sampling_frequency_Hz\": %.8lg,\n", freq_sampling);
+        for (const auto &[param, value] : metadata) {
+            fprintf(file.get(), "%s: %s,\n", json_string(param).c_str(), json_string(value).c_str());
+        }
         fputs("\"segments\": [{\n", file.get());
     } else {
         fputs("},{\n\n", file.get());
@@ -114,8 +134,8 @@ void JsonBookWriter::write(Array2D<double> data, EpochIndex epoch, const std::ve
 
 //////////////////////////////////////////////////////////////////////////////
 
-SQLiteBookWriter::SQLiteBookWriter(double freq_sampling, index_t epoch_sample_count, const std::string &path_to_book_file)
-: BookWriter(freq_sampling, epoch_sample_count) {
+SQLiteBookWriter::SQLiteBookWriter(double freq_sampling, index_t epoch_sample_count, const std::string &path_to_book_file, Metadata metadata)
+: BookWriter(freq_sampling, epoch_sample_count, std::move(metadata)) {
     db = create_database(path_to_book_file.c_str());
     execute("PRAGMA journal_mode = OFF");
 
@@ -138,11 +158,15 @@ void SQLiteBookWriter::write(Array2D<double> data, EpochIndex epoch, const std::
 
     execute("BEGIN TRANSACTION");
     if (!total_segments_written) {
-        insert_metadata("version", APP_VERSION, [](auto ...params) {
+        const auto bind_text = [](auto ...params) {
             return sqlite3_bind_text(params..., -1, SQLITE_STATIC);
-        });
+        };
+        insert_metadata("version", APP_VERSION, bind_text);
         insert_metadata("channel_count", C, sqlite3_bind_int);
         insert_metadata("sampling_frequency_Hz", freq_sampling, sqlite3_bind_double);
+        for (const auto &[param, value] : metadata) {
+            insert_metadata(param.c_str(), value.c_str(), bind_text);
+        }
     }
     insert_segment(total_segments_written, N, N / freq_sampling, segment_offset / freq_sampling);
 

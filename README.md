@@ -127,8 +127,8 @@ Enhanced Matching Pursuit Implementation (empi) 1.0.0
 Usage: empi [OPTIONS] input_file output_file
 
 Positionals:
-  input_file TEXT REQUIRED    Path to the input signal file or input configuration file
-  output_file TEXT REQUIRED   Path for the output file unless configuration file is used
+  input_file TEXT REQUIRED    Path to the input signal file
+  output_file TEXT REQUIRED   Path for the output file
 
 Options:
   -h,--help                   Print this help message and exit
@@ -139,8 +139,10 @@ Options:
   -o TEXT                     Parameter optimization mode: none|local|global (default: global)
   -r FLOAT=0.01               Energy of the residual as a fraction of the total signal energy
   --channels TEXT             Range of channels to process, e.g. 1-3,5,8-9 (default: all)
+  --channel-names TEXT        Comma-separated names of all channels in the input signal, stored in the book (default: none)
   --cpu-threads UINT=6        Number of CPU threads for each worker
   --cpu-workers UINT=1        Number of independent CPU workers to run
+  --decomp-argv               Store the command line (with directory parts of paths removed) in the book
   --delta                     Include delta-type atoms
   --full-atoms-in-signal      Prohibit atoms from exceeding the time range of the signal
   --energy-error FLOAT=0.05   Epsilon-squared parameter corresponding to the dictionary size
@@ -155,6 +157,7 @@ Options:
   --segment-size INT          Number of samples in each segment (default: all samples)
   --segments TEXT Needs: --segment-size
                               Range of signal segments, e.g. 1-100,201-300 (default: all)
+  --signal-info TEXT          Free-text information on the signal, e.g. "unit=fT, montage=CAR", stored in the book (default: none)
   --gabor                     Include atoms with Gaussian envelope (not needed if any other --gabor-* option is given)
   --gabor-freq-max FLOAT      Maximum frequency (in hertz) for Gaussian envelope (default: auto)
   --gabor-scale-min FLOAT     Minimum scale (in seconds) for Gaussian envelope (default: auto)
@@ -173,9 +176,14 @@ floating-point values in the byte order  of the current machine
 signals, first come the samples for all channels at t=0, then for all channels
 at t=Δt, and so forth. In other words, the signal should be written
 in column-major order (rows = channels, columns = samples).
+The amplitudes of the resulting atoms are in the same unit as the input samples,
+and their energies in that unit squared times seconds (e.g. µV²·s).
+The decomposition does not depend on the unit, which can be recorded in the book
+with `--signal-info` (e.g. `--signal-info unit=uV`); for EEG, microvolts are recommended.
 2. _output_file_ is the full (or relative to the current directory) path for the output file.
 If the path ends in `.json`, JSON-formatted text file will be created. 
 Otherwise, SQLite database file will be created.
+Both formats contain the same metadata (see [Book metadata](#book-metadata)).
 
 The optional parameters are described below:
 
@@ -195,6 +203,14 @@ These can be specified as a single channel `1`, as an interval `1-5`, as a list 
 a list of epoch numbers (starting from 1) to be processed. These can be passed
 as a single epoch `1`, as an interval `1-100`, as a list `1,2,3` or mixed:
 `1-100,201-300,400`. If not given, all epochs (the entire signal) will be processed.
+* `--channel-names` gives the names of all channels in the input file, separated by commas
+(e.g. `--channel-names Fp1,Fp2,F3` for `-c 3`); the number of names must equal the value of `-c`.
+The names of the decomposed channels (see `--channels`) are stored in the book as `channel_names`.
+* `--signal-info` stores any text describing the signal in the book as `signal_info`.
+Its content is not interpreted by empi; the suggested form is a list of `key=value` pairs, such as
+`--signal-info "unit=fT, montage=CAR, filters=1-40Hz"`, with keys like
+`unit` (the unit of the samples), `montage`, `filters` or `sensor`, followed by any free text.
+It should not contain data identifying the subject, as it travels with every copy of the book.
 
 #### Decomposition process
 
@@ -213,6 +229,28 @@ The decomposition will iterate until `-i` iterations or
   each channel is processed separately. Detailed description of multi-variate
   decomposition modes can be found in the literature, e.g.
   [Kuś, Różański, Durka 2013](http://doi.org/10.1186/1475-925X-12-94).
+
+#### Book metadata
+
+Each book records the following metadata — in the `metadata` table (columns `param`, `value`)
+of an SQLite book, or as top-level fields of a JSON book:
+
+| Field                   | Content                                                                 |
+|-------------------------|-------------------------------------------------------------------------|
+| `version`               | version of empi which created the book                                  |
+| `channel_count`         | number of channels in the book                                          |
+| `sampling_frequency_Hz` | sampling frequency (`-f`)                                               |
+| `variant`               | `SMP` (each channel separately), `MMP1` or `MMP3` (`--mmp1`, `--mmp3`)  |
+| `decomp_argv`           | command line (only with `--decomp-argv`, see below)                     |
+| `signal_info`           | value of `--signal-info` (only if given)                                |
+| `channel_names`         | names of the decomposed channels (only if `--channel-names` was given)  |
+| `segment_count`         | number of segments in the book                                          |
+
+With `--decomp-argv`, the command line is stored as `decomp_argv`: all arguments joined into
+a single string, quoted as in a POSIX shell where needed, with the directory part of each path
+(input file, output file and `--residual-log-dir`) replaced by `(...)/`, so that only file names are kept, e.g.
+`empi -f 256 -i 100 --gabor --decomp-argv (...)/subject.bin (...)/subject.db`.
+Together with `version`, it shows exactly how the decomposition was run.
 
 #### Structure of the dictionary
 
